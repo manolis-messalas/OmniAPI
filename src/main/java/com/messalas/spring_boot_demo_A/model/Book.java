@@ -10,12 +10,6 @@ import lombok.*;
 @NoArgsConstructor
 public class Book {
 
-    public Book(String name, String publicationYear, Author author) {
-        this.name = name;
-        this.publicationYear = publicationYear;
-        this.author = author;
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,4 +24,9 @@ public class Book {
     @JoinColumn(name = "authorId")
     private Author author;
 
+    public Book(String name, String publicationYear, Author author) {
+        this.name = name;
+        this.publicationYear = publicationYear;
+        this.author = author;
+    }
 }

@@ -23,4 +23,9 @@ public class Author {
     @Column(nullable = false)
     private String countryOfOrigin;
 
+    public Author(String name, String dateOfBirth, String countryOfOrigin) {
+        this.name = name;
+        this.dateOfBirth = dateOfBirth;
+        this.countryOfOrigin = countryOfOrigin;
+    }
 }
