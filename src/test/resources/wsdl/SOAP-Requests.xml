@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- USE THESE FOR REQUEST BODY IN POSTMAN-->
+
+<!-- CREATE BOOK REQUEST -->
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:tns="http://spring.io/guides/gs-producing-web-service"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <tns:CreateBookRequest>
+         <tns:bookName>[[Random Book Name]]</tns:bookName>
+         <tns:dateOfBirth>[[Random Date of Birth]]</tns:dateOfBirth>
+         <tns:countryOfOrigin>[[Random Country]]</tns:countryOfOrigin>
+         <tns:authorName>[[Random Author Name]]</tns:authorName>
+         <tns:publicationYear>[[Random Year]]</tns:publicationYear>
+      </tns:CreateBookRequest>
+   </soapenv:Body>
+</soapenv:Envelope>

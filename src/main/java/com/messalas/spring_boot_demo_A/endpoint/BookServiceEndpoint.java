@@ -1,0 +1,43 @@
+package com.messalas.spring_boot_demo_A.endpoint;
+
+import bookshelf.generated.CreateBookAuthorRequest;
+import bookshelf.generated.CreateBookAuthorResponse;
+import com.messalas.spring_boot_demo_A.service.BookInfoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ws.server.endpoint.annotation.Endpoint;
+import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
+import org.springframework.ws.server.endpoint.annotation.RequestPayload;
+import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
+
+@Endpoint
+public class BookServiceEndpoint {
+
+    private static final String NAMESPACE_URI = "http://spring.io/guides/gs-producing-web-service";
+
+    private final BookInfoService bookInfoService;
+
+    @Autowired
+    public BookServiceEndpoint(BookInfoService bookInfoService) {
+        this.bookInfoService = bookInfoService;
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CreateBookAuthorRequest")
+    @ResponsePayload
+    public CreateBookAuthorResponse createBookAuthor(@RequestPayload CreateBookAuthorRequest request) {
+        CreateBookAuthorResponse response = new CreateBookAuthorResponse();
+        try {
+            bookshelf.generated.BookAuthorDTO requestBookAuthorDTO = request.getBookAuthorDTO();
+            com.messalas.spring_boot_demo_A.dto.BookAuthorDTO newBookAuthor = new com.messalas.spring_boot_demo_A.dto.BookAuthorDTO(
+                    requestBookAuthorDTO.getBookName(), requestBookAuthorDTO.getDateOfBirth(), requestBookAuthorDTO.getCountryOfOrigin(), requestBookAuthorDTO.getAuthorName(), requestBookAuthorDTO.getPublicationYear()
+            );
+
+            bookInfoService.saveBookAuthor(newBookAuthor);
+            response.setSuccess(true);
+        }catch (Exception e){
+            System.err.println("Error saving book and author information:" + e.getMessage());
+            response.setSuccess(false);
+        }
+        return response;
+    }
+
+}

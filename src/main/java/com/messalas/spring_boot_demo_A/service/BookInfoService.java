@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class BookInfoService{
 
@@ -28,5 +30,14 @@ public class BookInfoService{
         authorToSave = authorRepository.save(authorToSave);
         bookRepository.save(new Book(bookAuthorDTO.getBookName(), bookAuthorDTO.getPublicationYear(), authorToSave));
     }
+
+    public List<Book> getAllBooks(){
+        return bookRepository.findAll();
+    }
+
+    public List<Author> getAllAuthors(){
+        return authorRepository.findAll();
+    }
+
 
 }

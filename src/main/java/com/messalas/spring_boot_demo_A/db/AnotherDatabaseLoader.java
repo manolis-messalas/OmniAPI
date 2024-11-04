@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A;
+package com.messalas.spring_boot_demo_A.db;
 
 import com.messalas.spring_boot_demo_A.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.service.BookInfoService;

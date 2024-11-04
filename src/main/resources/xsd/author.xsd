@@ -1,0 +1,85 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://spring.io/guides/gs-producing-web-service"
+           targetNamespace="http://spring.io/guides/gs-producing-web-service"
+           elementFormDefault="qualified">
+
+    <!--  Definitions  -->
+    <xs:complexType name="Author">
+        <xs:sequence>
+            <xs:element name="id" type="xs:long"/>
+            <xs:element name="name" type="xs:string"/>
+            <xs:element name="dateOfBirth" type="xs:string"/>
+            <xs:element name="countryOfOrigin" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Request and Response for CreateAuthor operation -->
+    <xs:element name="CreateAuthorRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="author" type="tns:Author"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="CreateAuthorResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="id" type="xs:long"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Request and Response for GetAuthor operation -->
+    <xs:element name="GetAuthorRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="id" type="xs:long" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAuthorResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="author" type="tns:Author" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Request and Response for UpdateAuthor operation -->
+    <xs:element name="UpdateAuthorRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="author" type="tns:Author"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="UpdateAuthorResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="author" type="tns:Author"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Request and Response for DeleteAuthor operation -->
+    <xs:element name="DeleteAuthorRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authorId" type="xs:long"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="DeleteAuthorResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="status" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+
+</xs:schema>
