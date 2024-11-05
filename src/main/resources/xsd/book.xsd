@@ -10,7 +10,7 @@
             <xs:element name="id" type="xs:long"/>
             <xs:element name="name" type="xs:string"/>
             <xs:element name="publicationYear" type="xs:string"/>
-            <xs:element name="author" type="tns:Author"/>
+            <xs:element name="authorEntity" type="tns:Author"/>
         </xs:sequence>
     </xs:complexType>
 

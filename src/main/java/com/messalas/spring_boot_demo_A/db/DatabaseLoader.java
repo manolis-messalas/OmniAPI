@@ -1,6 +1,6 @@
 package com.messalas.spring_boot_demo_A.db;
 
-import com.messalas.spring_boot_demo_A.dto.BookAuthorDTO;
+import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.service.BookInfoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

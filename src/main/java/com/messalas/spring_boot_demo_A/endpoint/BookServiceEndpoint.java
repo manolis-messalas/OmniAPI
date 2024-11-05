@@ -2,6 +2,7 @@ package com.messalas.spring_boot_demo_A.endpoint;
 
 import bookshelf.generated.CreateBookAuthorRequest;
 import bookshelf.generated.CreateBookAuthorResponse;
+import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.service.BookInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
@@ -27,10 +28,9 @@ public class BookServiceEndpoint {
         CreateBookAuthorResponse response = new CreateBookAuthorResponse();
         try {
             bookshelf.generated.BookAuthorDTO requestBookAuthorDTO = request.getBookAuthorDTO();
-            com.messalas.spring_boot_demo_A.dto.BookAuthorDTO newBookAuthor = new com.messalas.spring_boot_demo_A.dto.BookAuthorDTO(
+            BookAuthorDTO newBookAuthor = new BookAuthorDTO(
                     requestBookAuthorDTO.getBookName(), requestBookAuthorDTO.getDateOfBirth(), requestBookAuthorDTO.getCountryOfOrigin(), requestBookAuthorDTO.getAuthorName(), requestBookAuthorDTO.getPublicationYear()
             );
-
             bookInfoService.saveBookAuthor(newBookAuthor);
             response.setSuccess(true);
         }catch (Exception e){

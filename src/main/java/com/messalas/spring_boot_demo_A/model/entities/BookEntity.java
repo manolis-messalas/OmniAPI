@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.model;
+package com.messalas.spring_boot_demo_A.model.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -8,7 +8,7 @@ import lombok.*;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Book {
+public class BookEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,11 +22,11 @@ public class Book {
 
     @ManyToOne
     @JoinColumn(name = "authorId")
-    private Author author;
+    private AuthorEntity authorEntity;
 
-    public Book(String name, String publicationYear, Author author) {
+    public BookEntity(String name, String publicationYear, AuthorEntity authorEntity) {
         this.name = name;
         this.publicationYear = publicationYear;
-        this.author = author;
+        this.authorEntity = authorEntity;
     }
 }

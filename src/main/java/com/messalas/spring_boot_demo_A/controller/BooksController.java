@@ -1,8 +1,8 @@
 package com.messalas.spring_boot_demo_A.controller;
 
-import com.messalas.spring_boot_demo_A.dto.BookAuthorDTO;
-import com.messalas.spring_boot_demo_A.model.Author;
-import com.messalas.spring_boot_demo_A.model.Book;
+import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
+import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
+import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;
 import com.messalas.spring_boot_demo_A.service.BookInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,13 +28,9 @@ public class BooksController {
     }
 
     @GetMapping("/books")
-    public List<Book> getAllBooks(){
+    public List<BookDTO> getAllBooks(){
         return bookInfoService.getAllBooks();
     }
 
-    @GetMapping("/authors")
-    public List<Author> getAllAuthors(){
-        return bookInfoService.getAllAuthors();
-    }
 
 }

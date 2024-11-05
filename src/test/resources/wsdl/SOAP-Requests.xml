@@ -3,18 +3,22 @@
 <!-- USE THESE FOR REQUEST BODY IN POSTMAN-->
 
 <!-- CREATE BOOK REQUEST -->
+Content-Type=text/xml
+
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:tns="http://spring.io/guides/gs-producing-web-service"
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
    <soapenv:Header/>
    <soapenv:Body>
-      <tns:CreateBookRequest>
-         <tns:bookName>[[Random Book Name]]</tns:bookName>
-         <tns:dateOfBirth>[[Random Date of Birth]]</tns:dateOfBirth>
-         <tns:countryOfOrigin>[[Random Country]]</tns:countryOfOrigin>
-         <tns:authorName>[[Random Author Name]]</tns:authorName>
-         <tns:publicationYear>[[Random Year]]</tns:publicationYear>
-      </tns:CreateBookRequest>
+      <tns:CreateBookAuthorRequest>
+         <tns:bookAuthorDTO>
+            <tns:bookName>loulou1</tns:bookName>
+            <tns:dateOfBirth>loulou1</tns:dateOfBirth>
+            <tns:countryOfOrigin>loulou1</tns:countryOfOrigin>
+            <tns:authorName>loulou1</tns:authorName>
+            <tns:publicationYear>loulou1</tns:publicationYear>
+         </tns:bookAuthorDTO>
+      </tns:CreateBookAuthorRequest>
    </soapenv:Body>
 </soapenv:Envelope>

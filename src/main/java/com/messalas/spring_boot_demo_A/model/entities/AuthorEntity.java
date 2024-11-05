@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.model;
+package com.messalas.spring_boot_demo_A.model.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -8,7 +8,7 @@ import lombok.*;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Author {
+public class AuthorEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,7 +23,7 @@ public class Author {
     @Column(nullable = false)
     private String countryOfOrigin;
 
-    public Author(String name, String dateOfBirth, String countryOfOrigin) {
+    public AuthorEntity(String name, String dateOfBirth, String countryOfOrigin) {
         this.name = name;
         this.dateOfBirth = dateOfBirth;
         this.countryOfOrigin = countryOfOrigin;
