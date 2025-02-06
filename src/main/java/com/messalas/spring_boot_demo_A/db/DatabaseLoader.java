@@ -1,7 +1,7 @@
 package com.messalas.spring_boot_demo_A.db;
 
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
-import com.messalas.spring_boot_demo_A.service.BookInfoService;
+import com.messalas.spring_boot_demo_A.service.BookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -19,10 +19,10 @@ public class DatabaseLoader {
     has only one method that we have to override ( run() )
     so we can do that we the lambda expression*/
     @Bean
-    CommandLineRunner initDatabase(BookInfoService bookInfoService) {
+    CommandLineRunner initDatabase(BookService bookService) {
         return args -> {
             log.info("Populating data from Database Loader...");
-            bookInfoService.saveBookAuthor(new BookAuthorDTO("On the Genealogy of Morals and Ecce Homo", "1 July 1921", "Germany", "Walter Kaufmann", "1989"));
+            bookService.saveBookAuthor(new BookAuthorDTO("On the Genealogy of Morals and Ecce Homo", "1 July 1921", "Germany", "Walter Kaufmann", "1989"));
         };
     }
 

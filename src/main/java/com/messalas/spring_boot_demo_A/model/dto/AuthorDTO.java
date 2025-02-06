@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AuthorDTO {
 
+    private Long authorId;
     private String authorName;
     private String dateOfBirth;
     private String countryOfOrigin;

@@ -3,7 +3,7 @@ package com.messalas.spring_boot_demo_A.api;
 import com.messalas.spring_boot_demo_A.builders.BookAuthorDTOBuilder;
 import com.messalas.spring_boot_demo_A.controller.BooksController;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
-import com.messalas.spring_boot_demo_A.service.BookInfoService;
+import com.messalas.spring_boot_demo_A.service.BookService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +29,7 @@ public class TestRESTEndpoints {
     private BooksController booksController;
 
     @MockBean
-    private BookInfoService bookInfoService;
+    private BookService bookService;
 
     private final boolean testPassed = true;
     @AfterEach
@@ -55,7 +55,7 @@ public class TestRESTEndpoints {
 
         logger.info("Starting testCreateBookAuthor test with DTO: {}", bookAuthorDTO.toString());
 
-        when(bookInfoService.saveBookAuthor(bookAuthorDTO)).thenReturn(2L);
+        when(bookService.saveBookAuthor(bookAuthorDTO)).thenReturn(2L);
         //Call the controller method
         ResponseEntity<BookAuthorDTO> response = booksController.createBookAuthor(bookAuthorDTO);
 

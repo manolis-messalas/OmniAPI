@@ -3,7 +3,7 @@ package com.messalas.spring_boot_demo_A.endpoint;
 import bookshelf.generated.CreateBookAuthorRequest;
 import bookshelf.generated.CreateBookAuthorResponse;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
-import com.messalas.spring_boot_demo_A.service.BookInfoService;
+import com.messalas.spring_boot_demo_A.service.BookService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
@@ -15,11 +15,11 @@ public class BookServiceEndpoint {
 
     private static final String NAMESPACE_URI = "http://spring.io/guides/gs-producing-web-service";
 
-    private final BookInfoService bookInfoService;
+    private final BookService bookService;
 
     @Autowired
-    public BookServiceEndpoint(BookInfoService bookInfoService) {
-        this.bookInfoService = bookInfoService;
+    public BookServiceEndpoint(BookService bookService) {
+        this.bookService = bookService;
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CreateBookAuthorRequest")
@@ -31,7 +31,7 @@ public class BookServiceEndpoint {
             BookAuthorDTO newBookAuthor = new BookAuthorDTO(
                     requestBookAuthorDTO.getBookName(), requestBookAuthorDTO.getDateOfBirth(), requestBookAuthorDTO.getCountryOfOrigin(), requestBookAuthorDTO.getAuthorName(), requestBookAuthorDTO.getPublicationYear()
             );
-            bookInfoService.saveBookAuthor(newBookAuthor);
+            bookService.saveBookAuthor(newBookAuthor);
             response.setSuccess(true);
         }catch (Exception e){
             System.err.println("Error saving book and author information:" + e.getMessage());

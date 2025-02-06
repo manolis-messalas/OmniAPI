@@ -1,5 +1,7 @@
 package com.messalas.spring_boot_demo_A.service;
 
+import com.messalas.spring_boot_demo_A.mappers.AuthorMapper;
+import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;
 import com.messalas.spring_boot_demo_A.repository.AuthorRepository;
 import org.slf4j.Logger;
@@ -17,13 +19,15 @@ public class AuthorService {
     @Autowired
     private AuthorRepository authorRepository;
 
-    public AuthorEntity createAuthor(AuthorEntity authorEntity){
-        log.info("Saving..."+ authorEntity.toString());
-        return authorRepository.save(authorEntity);
+    public AuthorEntity createAuthor(AuthorDTO authorDTO){
+        AuthorEntity authorEntityToSave = AuthorMapper.INSTANCE.authorDTOToAuthorEntity(authorDTO);
+        log.info("Saving..."+ authorEntityToSave.toString());
+        return authorRepository.save(authorEntityToSave);
     }
 
-    public List<AuthorEntity> getAllAuthors(){
-        return authorRepository.findAll();
+    public List<AuthorDTO> getAllAuthors(){
+        List<AuthorEntity> authorEntities = authorRepository.findAll();
+        return authorEntities.stream().map(AuthorMapper.INSTANCE::authorEntityToAuthorDTO).toList();
     }
 
 }

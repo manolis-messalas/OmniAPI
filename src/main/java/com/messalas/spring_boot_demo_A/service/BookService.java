@@ -1,6 +1,8 @@
 package com.messalas.spring_boot_demo_A.service;
 
+import com.messalas.spring_boot_demo_A.mappers.BookMapper;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
+import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
 import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;
 import com.messalas.spring_boot_demo_A.model.entities.BookEntity;
 import com.messalas.spring_boot_demo_A.repository.AuthorRepository;
@@ -14,9 +16,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-public class BookInfoService{
+public class BookService {
 
-    private static final Logger log = LoggerFactory.getLogger(BookInfoService.class);
+    private static final Logger log = LoggerFactory.getLogger(BookService.class);
 
     @Autowired
     private AuthorRepository authorRepository;
@@ -32,8 +34,9 @@ public class BookInfoService{
         return bookEntitySaved.getId();
     }
 
-    public List<BookEntity> getAllBooks(){
-        return bookRepository.findAll();
+    public List<BookDTO> getAllBooks(){
+        List<BookEntity> bookEntities = bookRepository.findAll();
+        return bookEntities.stream().map(BookMapper.INSTANCE::bookEntityToBookDTO).toList();
     }
 
 
