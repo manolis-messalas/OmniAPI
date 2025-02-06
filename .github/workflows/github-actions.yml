@@ -16,7 +16,8 @@ on:
 
 permissions:
   contents: read
-  security-events: write  # This allows dependency snapshot submission
+  security-events: write  # Ensures access to dependency graph API
+  actions: read
 
 jobs:
   build:
