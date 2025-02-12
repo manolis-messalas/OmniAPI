@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.builders;
+package com.messalas.spring_boot_demo_A.model.builders;
 
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 

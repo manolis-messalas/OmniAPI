@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.mappers;
+package com.messalas.spring_boot_demo_A.model.mappers;
 
 import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;

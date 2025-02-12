@@ -1,7 +1,7 @@
-package com.messalas.spring_boot_demo_A.api;
+package com.messalas.spring_boot_demo_A.unit;
 
-import com.messalas.spring_boot_demo_A.builders.BookAuthorDTOBuilder;
-import com.messalas.spring_boot_demo_A.controller.BooksController;
+import com.messalas.spring_boot_demo_A.model.builders.BookAuthorDTOBuilder;
+import com.messalas.spring_boot_demo_A.apiEndpoints.rest.BooksController;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.service.BookService;
 import org.junit.jupiter.api.AfterEach;
@@ -21,9 +21,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @WebMvcTest(BooksController.class)
-public class TestRESTEndpoints {
+public class RESTEndpointsTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(TestRESTEndpoints.class);
+    private static final Logger logger = LoggerFactory.getLogger(RESTEndpointsTest.class);
 
     @Autowired
     private BooksController booksController;

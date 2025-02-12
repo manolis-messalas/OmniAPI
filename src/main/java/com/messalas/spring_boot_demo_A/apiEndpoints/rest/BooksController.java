@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.controller;
+package com.messalas.spring_boot_demo_A.apiEndpoints.rest;
 
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;

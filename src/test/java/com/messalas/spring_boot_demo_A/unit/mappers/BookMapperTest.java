@@ -1,5 +1,6 @@
-package com.messalas.spring_boot_demo_A.mappers;
+package com.messalas.spring_boot_demo_A.unit.mappers;
 
+import com.messalas.spring_boot_demo_A.model.mappers.BookMapper;
 import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
 import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;
