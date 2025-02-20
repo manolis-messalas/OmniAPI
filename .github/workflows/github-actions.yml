@@ -47,7 +47,7 @@ jobs:
 
     - name: Run Integration Tests (with Testcontainers)
       env:
-        TESTCONTAINERS_RYUK_DISABLED: true  # Sometimes needed for GitHub Actions
+        TESTCONTAINERS_RYUK_DISABLED: false  # Sometimes needed for GitHub Actions
       run: ./mvnw verify
 
 #    - name: Build with Maven
