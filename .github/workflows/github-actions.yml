@@ -23,6 +23,10 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:20.10.14  # Ensure Docker is available
+        options: --privileged  # Required for Testcontainers
 
     steps:
     - uses: actions/checkout@v4
@@ -38,10 +42,12 @@ jobs:
     - name: Build without tests
       run: ./mvnw clean install -DskipTests
 
-    - name: Run unit tests
+    - name: Run Unit Tests
       run: ./mvnw test
 
-    - name: Run integration tests
+    - name: Run Integration Tests (with Testcontainers)
+      env:
+        TESTCONTAINERS_RYUK_DISABLED: true  # Sometimes needed for GitHub Actions
       run: ./mvnw verify
 
 #    - name: Build with Maven
