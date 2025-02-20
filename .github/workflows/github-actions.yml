@@ -50,5 +50,8 @@ jobs:
         TESTCONTAINERS_RYUK_DISABLED: false  # Sometimes needed for GitHub Actions
       run: ./mvnw verify
 
+    - name: Verify Running Containers
+      run: docker ps
+
 #    - name: Build with Maven
 #      run: ./mvnw -B package --file pom.xml
