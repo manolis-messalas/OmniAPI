@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.apiEndpoints.rest;
+package com.messalas.spring_boot_demo_A.api.rest;
 
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/rest")
 public class BooksController {
 
     private final BookService bookService;

@@ -1,7 +1,7 @@
 package com.messalas.spring_boot_demo_A.unit;
 
 import com.messalas.spring_boot_demo_A.model.builders.BookAuthorDTOBuilder;
-import com.messalas.spring_boot_demo_A.apiEndpoints.rest.BooksController;
+import com.messalas.spring_boot_demo_A.api.rest.BooksController;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.service.BookService;
 import org.junit.jupiter.api.AfterEach;

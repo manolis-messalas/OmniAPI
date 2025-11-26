@@ -22,7 +22,14 @@ public class DatabaseLoader {
     CommandLineRunner initDatabase(BookService bookService) {
         return args -> {
             log.info("Populating data from Database Loader...");
-            bookService.saveBookAuthor(new BookAuthorDTO("On the Genealogy of Morals and Ecce Homo", "1 July 1921", "Germany", "Walter Kaufmann", "1989"));
+            bookService.saveBookAuthor(
+                    new BookAuthorDTO(
+                            "On the Genealogy of Morals and Ecce Homo",
+                            "1 July 1921",
+                            "Germany",
+                            "Walter Kaufmann",
+                            "1989"
+                    ));
         };
     }
 

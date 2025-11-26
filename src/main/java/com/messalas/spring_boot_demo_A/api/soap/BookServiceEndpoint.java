@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.apiEndpoints.soap;
+package com.messalas.spring_boot_demo_A.api.soap;
 
 import bookshelf.generated.CreateBookAuthorRequest;
 import bookshelf.generated.CreateBookAuthorResponse;

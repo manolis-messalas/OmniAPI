@@ -21,7 +21,14 @@ public class AnotherDatabaseLoader implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         log.info("Populating data from Another Database Loader...");
-        bookService.saveBookAuthor(new BookAuthorDTO("The Art of Thinking Clearly", "15 June 1966", "Switzerland", "Rolf Debolli", "2014"));
+        bookService.saveBookAuthor(
+                new BookAuthorDTO(
+                        "The Art of Thinking Clearly",
+                        "15 June 1966",
+                        "Switzerland",
+                        "Rolf Debolli",
+                        "2014"
+                ));
     }
 
 }

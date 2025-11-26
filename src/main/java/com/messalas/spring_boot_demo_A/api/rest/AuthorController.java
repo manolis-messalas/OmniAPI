@@ -1,4 +1,4 @@
-package com.messalas.spring_boot_demo_A.apiEndpoints.rest;
+package com.messalas.spring_boot_demo_A.api.rest;
 
 import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.service.AuthorService;
@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/rest")
 public class AuthorController {
 
     private final AuthorService authorService;
