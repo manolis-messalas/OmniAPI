@@ -9,15 +9,15 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/rest")
-public class AuthorController {
+public class AuthorRESTController {
 
     private final AuthorService authorService;
 
-    public AuthorController(AuthorService authorService) {
+    public AuthorRESTController(AuthorService authorService) {
         this.authorService = authorService;
     }
 
-    @PostMapping(path = "/addAuthor")
+    @PostMapping(path = "/createAuthor")
     public ResponseEntity<AuthorDTO> createAuthor(@RequestBody AuthorDTO authorDTO){
         authorService.createAuthor(authorDTO);
         return ResponseEntity.ok().build();
@@ -26,6 +26,12 @@ public class AuthorController {
     @GetMapping("/authors")
     public ResponseEntity<List<AuthorDTO>> getAllAuthors(){
         return ResponseEntity.ok(authorService.getAllAuthors());
+    }
+
+    @DeleteMapping("/authors/{id}")
+    public ResponseEntity<Void> deleteAuthor(@PathVariable Long id) {
+        authorService.deleteAuthor(id);
+        return ResponseEntity.noContent().build();
     }
 
 }

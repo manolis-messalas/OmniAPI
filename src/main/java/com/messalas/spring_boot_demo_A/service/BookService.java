@@ -1,5 +1,6 @@
 package com.messalas.spring_boot_demo_A.service;
 
+import com.messalas.spring_boot_demo_A.model.mappers.AuthorMapper;
 import com.messalas.spring_boot_demo_A.model.mappers.BookMapper;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
@@ -7,6 +8,7 @@ import com.messalas.spring_boot_demo_A.model.entities.AuthorEntity;
 import com.messalas.spring_boot_demo_A.model.entities.BookEntity;
 import com.messalas.spring_boot_demo_A.repository.AuthorRepository;
 import com.messalas.spring_boot_demo_A.repository.BookRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +36,31 @@ public class BookService {
         return bookEntitySaved.getId();
     }
 
+    @Transactional
+    public Long createBook(BookDTO bookDTO){
+        BookEntity bookEntityToSave = BookMapper.INSTANCE.bookDTOtoBookEntity(bookDTO);
+
+        AuthorEntity author = authorRepository.findByName(bookDTO.getAuthorDTO().getAuthorName())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()
+                ));
+        bookDTO.setAuthorDTO(AuthorMapper.INSTANCE.authorEntityToAuthorDTO(author));
+
+        log.info("Saving..."+ bookEntityToSave.toString());
+        return bookRepository.save(bookEntityToSave).getId();
+    }
+
     public List<BookDTO> getAllBooks(){
         List<BookEntity> bookEntities = bookRepository.findAll();
         return bookEntities.stream().map(BookMapper.INSTANCE::bookEntityToBookDTO).toList();
     }
 
+    @Transactional
+    public void deleteBook(Long id) {
+        if (!bookRepository.existsById(id)) {
+            throw new EntityNotFoundException("Book with id " + id + " not found");
+        }
+        bookRepository.deleteById(id);
+    }
 
 }

@@ -17,7 +17,7 @@
     <xs:element name="CreateAuthorRequest">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="authorEntity" type="tns:Author"/>
+                <xs:element name="author" type="tns:Author"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -25,7 +25,8 @@
     <xs:element name="CreateAuthorResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="id" type="xs:long"/>
+                <xs:element name="authorId" type="xs:long"/>
+                <xs:element name="message" type="xs:string"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -42,7 +43,22 @@
     <xs:element name="GetAuthorResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="authorEntity" type="tns:Author" minOccurs="0" maxOccurs="1"/>
+                <xs:element name="author" type="tns:Author" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAuthorsRequest">
+        <xs:complexType>
+            <xs:sequence>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAuthorsResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authors" type="tns:Author" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -51,7 +67,7 @@
     <xs:element name="UpdateAuthorRequest">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="authorEntity" type="tns:Author"/>
+                <xs:element name="author" type="tns:Author"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -59,7 +75,7 @@
     <xs:element name="UpdateAuthorResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="authorEntity" type="tns:Author"/>
+                <xs:element name="author" type="tns:Author"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -76,7 +92,7 @@
     <xs:element name="DeleteAuthorResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="status" type="xs:string"/>
+                <xs:element name="status" type="xs:boolean"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

@@ -7,10 +7,9 @@
     <!--  Definitions  -->
     <xs:complexType name="Book">
         <xs:sequence>
-            <xs:element name="id" type="xs:long"/>
             <xs:element name="name" type="xs:string"/>
             <xs:element name="publicationYear" type="xs:string"/>
-            <xs:element name="authorEntity" type="tns:Author"/>
+            <xs:element name="authorName" type="xs:string"/>
         </xs:sequence>
     </xs:complexType>
 
@@ -26,7 +25,8 @@
     <xs:element name="CreateBookResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="id" type="xs:long"/>
+                <xs:element name="bookId" type="xs:long"/>
+                <xs:element name="message" type="xs:string"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -44,6 +44,21 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="book" type="tns:Book" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetBooksRequest">
+        <xs:complexType>
+            <xs:sequence>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetBooksResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="books" type="tns:Book" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -77,7 +92,7 @@
     <xs:element name="DeleteBookResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="status" type="xs:string"/>
+                <xs:element name="status" type="xs:boolean"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

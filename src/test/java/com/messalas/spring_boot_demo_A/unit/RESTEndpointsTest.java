@@ -1,8 +1,10 @@
 package com.messalas.spring_boot_demo_A.unit;
 
+import com.messalas.spring_boot_demo_A.api.rest.AuthorRESTController;
 import com.messalas.spring_boot_demo_A.model.builders.BookAuthorDTOBuilder;
-import com.messalas.spring_boot_demo_A.api.rest.BooksController;
+import com.messalas.spring_boot_demo_A.api.rest.BooksRESTController;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
+import com.messalas.spring_boot_demo_A.service.AuthorService;
 import com.messalas.spring_boot_demo_A.service.BookService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -18,18 +20,25 @@ import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-@WebMvcTest(BooksController.class)
+@WebMvcTest(controllers ={BooksRESTController.class, AuthorRESTController.class})
 public class RESTEndpointsTest {
 
     private static final Logger logger = LoggerFactory.getLogger(RESTEndpointsTest.class);
 
     @Autowired
-    private BooksController booksController;
+    private BooksRESTController booksRESTController;
+
+    @Autowired
+    private AuthorRESTController authorRESTController;
 
     @MockBean
     private BookService bookService;
+
+    @MockBean
+    private AuthorService authorService;
 
     private final boolean testPassed = true;
     @AfterEach
@@ -57,9 +66,35 @@ public class RESTEndpointsTest {
 
         when(bookService.saveBookAuthor(bookAuthorDTO)).thenReturn(2L);
         //Call the controller method
-        ResponseEntity<BookAuthorDTO> response = booksController.createBookAuthor(bookAuthorDTO);
+        ResponseEntity<BookAuthorDTO> response = booksRESTController.createBookAuthor(bookAuthorDTO);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    public void testDeleteBook() {
+        Long bookId = 1L;
+
+        logger.info("Starting testDeleteBook with id: {}", bookId);
+
+        ResponseEntity<Void> response = booksRESTController.deleteBook(bookId);
+
+        verify(bookService).deleteBook(bookId);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    public void testDeleteAuthor() {
+        Long authorId = 1L;
+
+        logger.info("Starting testDeleteBook with id: {}", authorId);
+
+        ResponseEntity<Void> response = authorRESTController.deleteAuthor(authorId);
+
+        verify(authorService).deleteAuthor(authorId);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 
 }

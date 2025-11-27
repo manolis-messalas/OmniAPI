@@ -11,12 +11,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/rest")
-public class BooksController {
+public class BooksRESTController {
 
     private final BookService bookService;
 
     @Autowired
-    public BooksController(BookService bookService){
+    public BooksRESTController(BookService bookService){
         this.bookService = bookService;
     }
 
@@ -29,6 +29,12 @@ public class BooksController {
     @GetMapping("/books")
     public ResponseEntity<List<BookDTO>> getAllBooks(){
         return ResponseEntity.ok(bookService.getAllBooks());
+    }
+
+    @DeleteMapping("/books/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
+        bookService.deleteBook(id);
+        return ResponseEntity.noContent().build();
     }
 
 }
