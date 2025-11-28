@@ -57,9 +57,15 @@ public class BookSOAPController {
         CreateBookResponse response = new CreateBookResponse();
         try {
             bookshelf.generated.Book requestBook = request.getBook();
-            com.messalas.spring_boot_demo_A.model.dto.BookDTO newBook = new BookDTO(
-                    requestBook.getName(), requestBook.getPublicationYear(), requestBook.getAuthorName()
-            );
+            com.messalas.spring_boot_demo_A.model.dto.AuthorDTO authorDTO = com.messalas.spring_boot_demo_A.model.dto.AuthorDTO.builder()
+                    .authorName(requestBook.getAuthorName())
+                    .build();
+
+            BookDTO newBook = BookDTO.builder()
+                    .bookName(requestBook.getName())
+                    .publicationYear(requestBook.getPublicationYear())
+                    .authorDTO(authorDTO)
+                    .build();
 
             Long bookId = bookService.saveBook(newBook);
             response.setBookId(bookId);

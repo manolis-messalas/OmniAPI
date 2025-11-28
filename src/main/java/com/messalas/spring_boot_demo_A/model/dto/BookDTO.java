@@ -16,10 +16,4 @@ public class BookDTO {
     private String publicationYear;
     private AuthorDTO authorDTO;
 
-    public BookDTO(String bookName, String publicationYear, String authorName) {
-        this.bookName = bookName;
-        this.publicationYear = publicationYear;
-        this.authorDTO = new AuthorDTO();
-        this.authorDTO.setAuthorName(authorName);
-    }
 }

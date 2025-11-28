@@ -38,12 +38,13 @@ public class BookService {
 
     @Transactional
     public Long saveBook(BookDTO bookDTO){
-        BookEntity bookEntityToSave = BookMapper.INSTANCE.bookDTOtoBookEntity(bookDTO);
-
         AuthorEntity author = authorRepository.findByName(bookDTO.getAuthorDTO().getAuthorName())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()));
-        bookDTO.setAuthorDTO(AuthorMapper.INSTANCE.authorEntityToAuthorDTO(author));
+        BookEntity bookEntityToSave = new BookEntity();
+        bookEntityToSave.setName(bookDTO.getBookName());
+        bookEntityToSave.setPublicationYear(bookDTO.getPublicationYear());
+        bookEntityToSave.setAuthorEntity(author);
 
         log.info("Saving..."+ bookEntityToSave.toString());
         return bookRepository.save(bookEntityToSave).getId();

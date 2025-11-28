@@ -236,7 +236,6 @@ public class RESTControllersTest {
 
     @Test
     public void testGetAuthorById() {
-        // Arrange
         Long authorId = 1L;
         AuthorDTO expectedAuthor = AuthorDTO.builder()
                 .authorId(authorId)
