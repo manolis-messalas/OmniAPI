@@ -21,8 +21,14 @@ public class BooksRESTController {
     }
 
     @PostMapping("/addBookAuthor")
-    public ResponseEntity<BookAuthorDTO> createBookAuthor(@RequestBody BookAuthorDTO bookAuthorDTO){
+    public ResponseEntity<BookAuthorDTO> addBookAuthor(@RequestBody BookAuthorDTO bookAuthorDTO){
         bookService.saveBookAuthor(bookAuthorDTO);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/addBook")
+    public ResponseEntity<BookDTO> addBook(@RequestBody BookDTO bookDTO){
+        bookService.saveBook(bookDTO);
         return ResponseEntity.ok().build();
     }
 
@@ -30,6 +36,9 @@ public class BooksRESTController {
     public ResponseEntity<List<BookDTO>> getAllBooks(){
         return ResponseEntity.ok(bookService.getAllBooks());
     }
+
+    @GetMapping("/book/{name}")
+    public ResponseEntity<BookDTO> getBook(@PathVariable String name){ return ResponseEntity.ok(bookService.findBookByName(name)); }
 
     @DeleteMapping("/books/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {

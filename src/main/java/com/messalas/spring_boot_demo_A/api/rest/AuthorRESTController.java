@@ -28,6 +28,11 @@ public class AuthorRESTController {
         return ResponseEntity.ok(authorService.getAllAuthors());
     }
 
+    @GetMapping("author/{id}")
+    public ResponseEntity<AuthorDTO> getAuthor(@PathVariable Long id) { 
+        return ResponseEntity.ok(authorService.getAuthorById(id));
+    }
+
     @DeleteMapping("/authors/{id}")
     public ResponseEntity<Void> deleteAuthor(@PathVariable Long id) {
         authorService.deleteAuthor(id);

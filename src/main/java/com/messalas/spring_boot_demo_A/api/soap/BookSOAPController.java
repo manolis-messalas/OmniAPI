@@ -3,13 +3,13 @@ package com.messalas.spring_boot_demo_A.api.soap;
 import bookshelf.generated.*;
 import com.messalas.spring_boot_demo_A.exceptions.BookServiceException;
 import com.messalas.spring_boot_demo_A.exceptions.BookValidationException;
-import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
 import com.messalas.spring_boot_demo_A.service.BookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
@@ -61,7 +61,7 @@ public class BookSOAPController {
                     requestBook.getName(), requestBook.getPublicationYear(), requestBook.getAuthorName()
             );
 
-            Long bookId = bookService.createBook(newBook);
+            Long bookId = bookService.saveBook(newBook);
             response.setBookId(bookId);
             response.setMessage("SUCCESS");
             return response;
@@ -91,8 +91,6 @@ public class BookSOAPController {
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "GetBooksRequest")
     @ResponsePayload
     public GetBooksResponse getBooks(@RequestPayload GetBooksRequest request) {
-        log.info("SOAP: Get all books");
-
         GetBooksResponse response = new GetBooksResponse();
 
         try {
@@ -102,6 +100,21 @@ public class BookSOAPController {
 
         } catch (Exception e) {
             log.error("Error fetching books", e);
+        }
+
+        return response;
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "GetBookRequest")
+    @ResponsePayload
+    public GetBookResponse getBook(@RequestPayload GetBookRequest request) {
+        GetBookResponse response = new GetBookResponse();
+
+        try{
+            BookDTO bookDTO = bookService.findBookByName(request.getName());
+            ResponseEntity.ok(mapBookDTOToRequestDTO(bookDTO));
+        } catch (Exception e) {
+            log.error("Error fetching book", e);
         }
 
         return response;

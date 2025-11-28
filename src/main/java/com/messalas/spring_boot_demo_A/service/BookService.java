@@ -37,13 +37,12 @@ public class BookService {
     }
 
     @Transactional
-    public Long createBook(BookDTO bookDTO){
+    public Long saveBook(BookDTO bookDTO){
         BookEntity bookEntityToSave = BookMapper.INSTANCE.bookDTOtoBookEntity(bookDTO);
 
         AuthorEntity author = authorRepository.findByName(bookDTO.getAuthorDTO().getAuthorName())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()
-                ));
+                        "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()));
         bookDTO.setAuthorDTO(AuthorMapper.INSTANCE.authorEntityToAuthorDTO(author));
 
         log.info("Saving..."+ bookEntityToSave.toString());
@@ -53,6 +52,12 @@ public class BookService {
     public List<BookDTO> getAllBooks(){
         List<BookEntity> bookEntities = bookRepository.findAll();
         return bookEntities.stream().map(BookMapper.INSTANCE::bookEntityToBookDTO).toList();
+    }
+
+    public BookDTO findBookByName(String bookName){
+        BookEntity bookEntity = bookRepository.findByName(bookName).
+                orElseThrow(() -> new IllegalArgumentException("Book not found with name: " + bookName));
+        return BookMapper.INSTANCE.bookEntityToBookDTO(bookEntity);
     }
 
     @Transactional
