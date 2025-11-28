@@ -24,16 +24,15 @@ import org.springframework.http.ResponseEntity;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @WebMvcTest(controllers ={BooksRESTController.class, AuthorRESTController.class})
-public class RESTEndpointsTest {
+public class RESTControllersTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(RESTEndpointsTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(RESTControllersTest.class);
 
     @Autowired
     private BooksRESTController booksRESTController;
