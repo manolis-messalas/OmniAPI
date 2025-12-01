@@ -8,6 +8,7 @@ import com.messalas.spring_boot_demo_A.service.AuthorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
@@ -15,6 +16,7 @@ import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Endpoint
 public class AuthorSOAPController {
 
     private static final String NAMESPACE_URI = "http://spring.io/guides/gs-producing-web-service";

@@ -6,7 +6,7 @@
     <!--  Definitions  -->
     <xs:complexType name="Author">
         <xs:sequence>
-            <xs:element name="id" type="xs:long"/>
+            <xs:element name="id" type="xs:long" minOccurs="0"/>
             <xs:element name="name" type="xs:string"/>
             <xs:element name="dateOfBirth" type="xs:string"/>
             <xs:element name="countryOfOrigin" type="xs:string"/>
