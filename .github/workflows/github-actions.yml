@@ -72,21 +72,21 @@ jobs:
         run: |
           ./mvnw spring-boot:start -Ph2 -Dspring-boot.run.fork=true
           sleep 10
-          curl -f http://localhost:8080/api/books
+          curl -f http://localhost:8080/api/rest/books
           ./mvnw spring-boot:stop
 
       - name: Verify PostgreSQL Application Startup
         run: |
           ./mvnw spring-boot:start -Ppostgres -Dspring-boot.run.fork=true
           sleep 10
-          curl -f http://localhost:8080/api/books
+          curl -f http://localhost:8080/api/rest/books
           ./mvnw spring-boot:stop
 
       - name: Verify SQLite Application Startup
         run: |
           ./mvnw spring-boot:start -Psqlite -Dspring-boot.run.fork=true
           sleep 10
-          curl -f http://localhost:8080/api/books
+          curl -f http://localhost:8080/api/rest/books
           ./mvnw spring-boot:stop
 
       - name: Upload All Test Results
