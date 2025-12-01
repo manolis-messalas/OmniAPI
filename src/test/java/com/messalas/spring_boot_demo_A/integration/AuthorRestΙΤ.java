@@ -20,9 +20,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("h2")
-public class AuthorRestIntegrationTest {
+public class AuthorRestΙΤ {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthorRestIntegrationTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(AuthorRestΙΤ.class);
 
     @Autowired
     private MockMvc mockMvc;

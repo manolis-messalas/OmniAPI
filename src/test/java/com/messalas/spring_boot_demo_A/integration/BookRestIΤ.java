@@ -23,9 +23,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("h2")
-public class BookRestIntegrationTest {
+public class BookRestIΤ {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookRestIntegrationTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(BookRestIΤ.class);
 
     @Autowired
     private MockMvc mockMvc;
