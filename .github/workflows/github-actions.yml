@@ -1,11 +1,3 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Java CI with Maven
 
 on:
@@ -16,42 +8,92 @@ on:
 
 permissions:
   contents: read
-  security-events: write  # Ensures access to dependency graph API
+  security-events: write
   actions: read
 
 jobs:
-  build:
-
+  build-and-test:
     runs-on: ubuntu-latest
+    
     services:
-      docker:
-        image: docker:20.10.14  # Ensure Docker is available
-        options: --privileged  # Required for Testcontainers
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_PASSWORD: mes123
+          POSTGRES_USER: messalas
+          POSTGRES_DB: booksdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 23
-      uses: actions/setup-java@v4
-      with:
-        java-version: '23'
-        distribution: 'temurin'
-        cache: maven
-    - name: Grant execute permissions to mvnw
-      run: chmod +x mvnw  # Fix permission issue
+      - uses: actions/checkout@v4
 
-    - name: Build without tests
-      run: ./mvnw clean install -DskipTests
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          java-version: '23'
+          distribution: 'temurin'
+          cache: maven
 
-    - name: Run Unit Tests
-      run: ./mvnw test
+      - name: Grant execute permissions to mvnw
+        run: chmod +x mvnw
 
-    - name: Run Integration Tests (with Testcontainers)
-      env:
-        TESTCONTAINERS_RYUK_DISABLED: false  # Sometimes needed for GitHub Actions
-      run: ./mvnw verify
+      - name: Build Project
+        run: ./mvnw clean install -DskipTests
 
-    - name: Verify Running Containers
-      run: docker ps
+      # Test with H2 profile
+      - name: Test with H2 Profile
+        run: |
+          echo "Testing with H2 profile..."
+          ./mvnw test -Ph2
+          ./mvnw verify -Ph2
 
-#    - name: Build with Maven
-#      run: ./mvnw -B package --file pom.xml
+      # Test with PostgreSQL profile
+      - name: Test with PostgreSQL Profile
+        run: |
+          echo "Testing with PostgreSQL profile..."
+          ./mvnw test -Ppostgres
+          ./mvnw verify -Ppostgres
+
+      # Test with SQLite profile
+      - name: Test with SQLite Profile
+        run: |
+          echo "Testing with SQLite profile..."
+          ./mvnw test -Psqlite
+          ./mvnw verify -Psqlite
+
+      # Verify each profile can start the application
+      - name: Verify H2 Application Startup
+        run: |
+          ./mvnw spring-boot:start -Ph2 -Dspring-boot.run.fork=true
+          sleep 10
+          curl -f http://localhost:8080/api/books
+          ./mvnw spring-boot:stop
+
+      - name: Verify PostgreSQL Application Startup
+        run: |
+          ./mvnw spring-boot:start -Ppostgres -Dspring-boot.run.fork=true
+          sleep 10
+          curl -f http://localhost:8080/api/books
+          ./mvnw spring-boot:stop
+
+      - name: Verify SQLite Application Startup
+        run: |
+          ./mvnw spring-boot:start -Psqlite -Dspring-boot.run.fork=true
+          sleep 10
+          curl -f http://localhost:8080/api/books
+          ./mvnw spring-boot:stop
+
+      - name: Upload All Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-all-profiles
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
