@@ -7,6 +7,7 @@
     <!--  Definitions  -->
     <xs:complexType name="Book">
         <xs:sequence>
+            <xs:element name="id" type="xs:long" minOccurs="0"/>
             <xs:element name="name" type="xs:string"/>
             <xs:element name="publicationYear" type="xs:string"/>
             <xs:element name="authorName" type="xs:string"/>

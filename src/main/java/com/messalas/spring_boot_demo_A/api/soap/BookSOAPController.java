@@ -128,6 +128,7 @@ public class BookSOAPController {
 
     public Book mapBookDTOToRequestDTO(com.messalas.spring_boot_demo_A.model.dto.BookDTO bookDTO){
         Book soapBook = new Book();
+        soapBook.setId(bookDTO.getId());
         soapBook.setName(bookDTO.getBookName());
         soapBook.setPublicationYear(bookDTO.getPublicationYear());
         soapBook.setAuthorName(bookDTO.getAuthorDTO().getAuthorName());
@@ -138,6 +139,7 @@ public class BookSOAPController {
         return bookDTOs.stream()
                 .map(bookDTO -> {
                     Book soapBook = new Book();
+                    soapBook.setId(bookDTO.getId());
                     soapBook.setName(bookDTO.getBookName());
                     soapBook.setPublicationYear(bookDTO.getPublicationYear());
                     soapBook.setAuthorName(bookDTO.getAuthorDTO().getAuthorName());
