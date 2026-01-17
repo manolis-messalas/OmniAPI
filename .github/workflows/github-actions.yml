@@ -70,23 +70,23 @@ jobs:
       # Verify each profile can start the application
       - name: Verify H2 Application Startup
         run: |
-          ./mvnw spring-boot:start -Ph2 -Dspring-boot.run.fork=true
-          sleep 10
-          curl -f http://localhost:9090/api/rest/books
+          ./mvnw spring-boot:start -Ph2 -Dspring-boot.run.arguments="--spring.profiles.active=h2,test" -Dspring-boot.run.fork=true
+          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
+          curl -f http://localhost:9090/api/rest/books || exit 1
           ./mvnw spring-boot:stop
 
       - name: Verify PostgreSQL Application Startup
         run: |
-          ./mvnw spring-boot:start -Ppostgres -Dspring-boot.run.fork=true
-          sleep 10
-          curl -f http://localhost:9090/api/rest/books
+          ./mvnw spring-boot:start -Ppostgres -Dspring-boot.run.arguments="--spring.profiles.active=postgres,test" -Dspring-boot.run.fork=true
+          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
+          curl -f http://localhost:9090/api/rest/books || exit 1
           ./mvnw spring-boot:stop
 
       - name: Verify SQLite Application Startup
         run: |
-          ./mvnw spring-boot:start -Psqlite -Dspring-boot.run.fork=true
-          sleep 10
-          curl -f http://localhost:9090/api/rest/books
+          ./mvnw spring-boot:start -Psqlite -Dspring-boot.run.arguments="--spring.profiles.active=sqlite,test" -Dspring-boot.run.fork=true
+          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
+          curl -f http://localhost:9090/api/rest/books || exit 1
           ./mvnw spring-boot:stop
 
       - name: Upload All Test Results
