@@ -22,7 +22,7 @@ public class BookEntity {
     private String publicationYear;
 
     @ManyToOne
-    @JoinColumn(name = "authorId")
+    @JoinColumn(name = "author_id")
     private AuthorEntity authorEntity;
 
     public BookEntity(String name, String publicationYear, AuthorEntity authorEntity) {
