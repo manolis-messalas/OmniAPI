@@ -34,3 +34,5 @@ build/
 
 ### ENVIRONMENT VARIABLES ###
 .env
+
+.trivy/

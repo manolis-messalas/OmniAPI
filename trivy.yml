@@ -1,0 +1,7 @@
+pkg:
+  java:
+    pom:
+      # Use local ~/.m2 cache instead of fetching from Maven Central
+      ignore-http-403: true
+    gradle-wrapper:
+      enabled: false
