@@ -20,6 +20,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    environment: ci
     
     outputs:
       app_image: ${{ steps.set-outputs.outputs.app_image }}
