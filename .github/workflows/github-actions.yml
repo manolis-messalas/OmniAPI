@@ -11,17 +11,56 @@ permissions:
   packages: write
   security-events: write
   actions: read
-  
+
 env:
   APP_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi
   POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi-postgres
 
-
+# ============================================================
+# JOB 1: UNIT TESTS
+# Fast feedback loop. H2 in-memory, no Docker required.
+# Runs on every push and PR. If this fails nothing else runs.
+# ============================================================
 jobs:
-  build-and-push:
+  unit-tests:
     runs-on: ubuntu-latest
     environment: ci
-    
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          java-version: '23'
+          distribution: temurin
+          cache: maven
+
+      - name: Grant execute permissions to mvnw
+        run: chmod +x mvnw
+
+      - name: Run unit tests (H2)
+        run: ./mvnw -B test -Ph2
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: target/surefire-reports/
+
+  # ============================================================
+  # JOB 2: BUILD AND PUSH IMAGES
+  # Only runs after unit tests pass.
+  # Only pushes images on master — not on PRs.
+  # Produces versioned image tags for use by downstream jobs.
+  # ============================================================
+  build-and-push:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    environment: ci
+
     outputs:
       app_image: ${{ steps.set-outputs.outputs.app_image }}
       postgres_image: ${{ steps.set-outputs.outputs.postgres_image }}
@@ -40,40 +79,48 @@ jobs:
       - name: Grant execute permissions to mvnw
         run: chmod +x mvnw
 
-      - name: Build project (skip tests)
+      - name: Build JAR (skip tests — already ran in unit-tests job)
         run: ./mvnw -B clean package -DskipTests
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push application image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          # Only push on master, not on PRs
+          push: ${{ github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.APP_IMAGE }}:latest
             ${{ env.APP_IMAGE }}:${{ github.sha }}
+            ${{ env.APP_IMAGE }}:${{ github.ref_name }}-${{ github.sha }}
           platforms: linux/amd64,linux/arm64
+          # Layer caching — speeds up repeated builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build and push Postgres image (includes init SQL)
-        uses: docker/build-push-action@v4
+      - name: Build and push Postgres image
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/postgres/Dockerfile
-          push: true
+          push: ${{ github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.POSTGRES_IMAGE }}:latest
             ${{ env.POSTGRES_IMAGE }}:${{ github.sha }}
+            ${{ env.POSTGRES_IMAGE }}:${{ github.ref_name }}-${{ github.sha }}
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Set output image refs
         id: set-outputs
@@ -81,46 +128,72 @@ jobs:
           echo "app_image=${{ env.APP_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "postgres_image=${{ env.POSTGRES_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
 
-  build-and-test:
+  # ============================================================
+  # JOB 3: INTEGRATION TESTS
+  # Runs against the actual pushed image — not a source rebuild.
+  # Tests the artifact we ship, not a recompile.
+  # Runs in parallel with security-scan.
+  # ============================================================
+  integration-tests:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: ci
+    # Only run integration tests on master where images were pushed
+    if: github.ref == 'refs/heads/master'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-  
+
       - name: Set up JDK 23
         uses: actions/setup-java@v4
         with:
           java-version: '23'
           distribution: temurin
-  
+          cache: maven
+
       - name: Grant execute permissions to mvnw
         run: chmod +x mvnw
 
-      # Maven verify with Postgres profile will run after Postgres container is ready
-  
       - name: Pull Postgres image
         run: docker pull ${{ needs.build-and-push.outputs.postgres_image }}
-  
+
+      - name: Pull application image
+        run: docker pull ${{ needs.build-and-push.outputs.app_image }}
+
       - name: Create docker network
         run: docker network create omniapi-net || true
-  
+
       - name: Start PostgreSQL container
         run: |
-          docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} ${{ needs.build-and-push.outputs.postgres_image }}
+          docker run -d \
+            --name test-postgres \
+            --network omniapi-net \
+            -p 5432:5432 \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            ${{ needs.build-and-push.outputs.postgres_image }}
           sleep 3
-          docker inspect test-postgres --format='{{.State.Status}}' | grep -q "running" || (echo "=== Postgres failed to start ===" && docker logs test-postgres && exit 1)
+          docker inspect test-postgres --format='{{.State.Status}}' | grep -q "running" || \
+            (echo "=== Postgres failed to start ===" && docker logs test-postgres && exit 1)
 
-      - name: Wait for Postgres to be ready
+      - name: Wait for Postgres to be healthy
         run: |
           for i in {1..30}; do
-            docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} && break || sleep 2;
+            docker exec test-postgres pg_isready \
+              -U ${{ secrets.POSTGRES_USER }} \
+              -d ${{ secrets.POSTGRES_DB }} && break || sleep 2
           done
+          docker exec test-postgres pg_isready \
+            -U ${{ secrets.POSTGRES_USER }} \
+            -d ${{ secrets.POSTGRES_DB }} || \
+            (echo "=== Postgres never became ready ===" && docker logs test-postgres && exit 1)
 
-      - name: Run Maven verify (generate JaCoCo report)
-        run: |
-          ./mvnw -B verify -Ppostgres
+      - name: Run integration tests (Postgres profile)
+        # Tests run against real Postgres — but compile from source.
+        # This validates application logic + DB interaction.
+        run: ./mvnw -B verify -Ppostgres
 
       - name: Upload JaCoCo coverage report
         if: always()
@@ -129,66 +202,77 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      - name: Upload test results
+      - name: Upload integration test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: integration-test-results
           path: |
             target/surefire-reports/
             target/failsafe-reports/
-  
-      - name: Pull application image
-        run: docker pull ${{ needs.build-and-push.outputs.app_image }}
-  
+
       - name: Start application container
         run: |
-          docker run -d --name test-app --network omniapi-net -e SPRING_PROFILES_ACTIVE=postgres -e SPRING_DATASOURCE_URL=jdbc:postgresql://test-postgres:5432/${{ secrets.POSTGRES_DB }} -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -p 9090:9090 ${{ needs.build-and-push.outputs.app_image }}
-  
-      - name: Wait for application HTTP port
+          docker run -d \
+            --name test-app \
+            --network omniapi-net \
+            -e SPRING_PROFILES_ACTIVE=postgres \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://test-postgres:5432/${{ secrets.POSTGRES_DB }} \
+            -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} \
+            -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -p 9090:9090 \
+            ${{ needs.build-and-push.outputs.app_image }}
+          sleep 5
+          docker inspect test-app --format='{{.State.Status}}' | grep -q "running" || \
+            (echo "=== App failed to start ===" && docker logs test-app && exit 1)
+
+      - name: Wait for application to be ready
         run: |
           for i in {1..60}; do
-            if curl -sSf http://localhost:9090/api/rest/authors >/dev/null; then
-              echo "app is up"; break
+            if curl -sSf http://localhost:9090/api/rest/authors >/dev/null 2>&1; then
+              echo "App is up and responding"
+              exit 0
             fi
+            echo "Attempt $i/60: app not ready yet..."
             sleep 2
           done
-  
-      - name: Check container health before DB verify
-        run: |
-          echo "=== Checking Postgres container status ==="
-          docker ps --filter name=test-postgres --format "table {{.Names}}\t{{.Status}}"
-          echo ""
-          echo "=== Checking App container status ==="
-          docker ps --filter name=test-app --format "table {{.Names}}\t{{.Status}}"
-          echo ""
-          echo "=== Testing Postgres connectivity ==="
-          docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}
+          echo "ERROR: App never became ready after 120 seconds"
+          docker logs test-app
+          exit 1
 
-      - name: Verify DB has authors
+      - name: Smoke test — REST endpoints respond
         run: |
-          echo "Checking if test-postgres container is running..."
-          docker ps --filter name=test-postgres
+          echo "=== GET /api/rest/authors ==="
+          curl -sf http://localhost:9090/api/rest/authors | python3 -m json.tool
           echo ""
-          echo "Running query..."
-          docker exec test-postgres psql -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "SELECT count(*) FROM author;"
+          echo "=== GET /api/rest/books ==="
+          curl -sf http://localhost:9090/api/rest/books | python3 -m json.tool
+
+      - name: Verify DB state — authors seeded correctly
+        run: |
+          COUNT=$(docker exec test-postgres psql \
+            -U ${{ secrets.POSTGRES_USER }} \
+            -d ${{ secrets.POSTGRES_DB }} \
+            -t -c "SELECT count(*) FROM author;" | tr -d ' ')
+          echo "Author count: $COUNT"
+          [ "$COUNT" -gt "0" ] || (echo "ERROR: No authors found in DB" && exit 1)
 
       - name: Diagnose container failure
         if: failure()
         run: |
           echo "=== Container Status ==="
-          docker ps -a | grep test-postgres || echo "Container not found"
+          docker ps -a
           echo ""
-          echo "=== Postgres Container Logs ==="
-          docker logs test-postgres 2>&1 || echo "Could not retrieve logs"
+          echo "=== Postgres Logs ==="
+          docker logs test-postgres 2>&1 || echo "No postgres logs"
           echo ""
-          echo "=== Network Status ==="
+          echo "=== App Logs ==="
+          docker logs test-app 2>&1 || echo "No app logs"
+          echo ""
+          echo "=== Network ==="
           docker network inspect omniapi-net 2>&1 || echo "Network not found"
-          echo ""
-          echo "=== Volume Status ==="
-          docker volume ls | grep postgres || echo "No postgres volumes"
 
-      - name: Collect container logs
+      - name: Collect container logs on failure
         if: failure()
         run: |
           docker logs test-app > test-app.log 2>/dev/null || true
@@ -196,7 +280,7 @@ jobs:
           docker inspect test-app > test-app.inspect 2>/dev/null || true
           docker inspect test-postgres > test-postgres.inspect 2>/dev/null || true
 
-      - name: Upload container logs
+      - name: Upload container logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -206,10 +290,95 @@ jobs:
             test-postgres.log
             test-app.inspect
             test-postgres.inspect
-  
+
       - name: Cleanup
         if: always()
         run: |
           docker rm -f test-app || true
           docker rm -f test-postgres || true
           docker network rm omniapi-net || true
+
+  # ============================================================
+  # JOB 4: SECURITY SCAN
+  # Runs in parallel with integration-tests after build-and-push.
+  # Scans dependencies, Docker image, and git history for secrets.
+  # Results appear in GitHub Security → Code Scanning tab.
+  # ============================================================
+  security-scan:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ci
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history needed for Gitleaks secret scanning
+          fetch-depth: 0
+
+      - name: Scan filesystem for dependency CVEs
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan Docker image for CVEs
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ needs.build-and-push.outputs.app_image }}
+          format: 'sarif'
+          output: 'trivy-image.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload filesystem scan results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs.sarif'
+          category: 'trivy-filesystem'
+
+      - name: Upload image scan results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-image.sarif'
+          category: 'trivy-image'
+
+      - name: Scan git history for leaked secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # JOB 5: VALIDATE
+  # Final gate. Runs only after both integration-tests AND
+  # security-scan pass. Confirms the pipeline is fully green.
+  # ============================================================
+  validate:
+    needs: [ integration-tests, security-scan ]
+    runs-on: ubuntu-latest
+    environment: ci
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Pipeline summary
+        run: |
+          echo "========================================"
+          echo "  OmniAPI Pipeline Summary"
+          echo "========================================"
+          echo "  Commit  : ${{ github.sha }}"
+          echo "  Branch  : ${{ github.ref_name }}"
+          echo "  Actor   : ${{ github.actor }}"
+          echo "  App     : ${{ needs.build-and-push.outputs.app_image }}"
+          echo "  Postgres: ${{ needs.build-and-push.outputs.postgres_image }}"
+          echo ""
+          echo "  ✓ Unit tests passed"
+          echo "  ✓ Images built and pushed"
+          echo "  ✓ Integration tests passed"
+          echo "  ✓ Security scan passed"
+          echo "========================================"
