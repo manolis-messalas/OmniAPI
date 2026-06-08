@@ -160,7 +160,7 @@ jobs:
           docker ps --filter name=test-app --format "table {{.Names}}\t{{.Status}}"
           echo ""
           echo "=== Testing Postgres connectivity ==="
-          docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d {{ secrets.POSTGRES_DB }}
+          docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}
 
       - name: Verify DB has authors
         run: |
