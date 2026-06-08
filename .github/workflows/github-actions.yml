@@ -35,6 +35,7 @@ jobs:
         with:
           java-version: '23'
           distribution: temurin
+          cache: maven
 
       - name: Grant execute permissions to mvnw
         run: chmod +x mvnw
@@ -83,6 +84,7 @@ jobs:
   build-and-test:
     needs: build-and-push
     runs-on: ubuntu-latest
+    environment: ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -115,6 +117,11 @@ jobs:
           for i in {1..30}; do
             docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} && break || sleep 2;
           done
+
+      - name : Run Cerberus Security Scan
+        uses: docker://dumanoj/cerberus:latest
+        with:
+          args: scan --path . --output-report.html
 
       - name: Run Maven verify (generate JaCoCo report)
         run: |
