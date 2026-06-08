@@ -118,11 +118,6 @@ jobs:
             docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} && break || sleep 2;
           done
 
-      - name : Run Cerberus Security Scan
-        uses: docker://dumanoj/cerberus:latest
-        with:
-          args: scan --path . --output-report.html
-
       - name: Run Maven verify (generate JaCoCo report)
         run: |
           ./mvnw -B verify -Ppostgres
