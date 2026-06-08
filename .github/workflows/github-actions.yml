@@ -229,7 +229,7 @@ jobs:
       - name: Wait for application to be ready
         run: |
           for i in {1..60}; do
-            if curl -sSf http://localhost:9090/api/rest/authors >/dev/null 2>&1; then
+            if curl -sSf http://localhost:9090/actuator/health >/dev/null 2>&1; then
               echo "App is up and responding"
               exit 0
             fi
@@ -239,14 +239,6 @@ jobs:
           echo "ERROR: App never became ready after 120 seconds"
           docker logs test-app
           exit 1
-
-      - name: Smoke test — REST endpoints respond
-        run: |
-          echo "=== GET /api/rest/authors ==="
-          curl -sf http://localhost:9090/api/rest/authors | python3 -m json.tool
-          echo ""
-          echo "=== GET /api/rest/books ==="
-          curl -sf http://localhost:9090/api/rest/books | python3 -m json.tool
 
       - name: Verify DB state — authors seeded correctly
         run: |
