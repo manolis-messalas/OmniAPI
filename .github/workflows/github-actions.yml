@@ -8,98 +8,172 @@ on:
 
 permissions:
   contents: read
+  packages: write
   security-events: write
   actions: read
+  
+env:
+  APP_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi
+  POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi-postgres
+
 
 jobs:
-  build-and-test:
+  build-and-push:
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_PASSWORD: mes123
-          POSTGRES_USER: messalas
-          POSTGRES_DB: booksdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    outputs:
+      app_image: ${{ steps.set-outputs.outputs.app_image }}
+      postgres_image: ${{ steps.set-outputs.outputs.postgres_image }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up JDK 23
         uses: actions/setup-java@v4
         with:
           java-version: '23'
-          distribution: 'temurin'
-          cache: maven
+          distribution: temurin
 
       - name: Grant execute permissions to mvnw
         run: chmod +x mvnw
 
-      - name: Build Project
-        run: ./mvnw clean install -DskipTests
+      - name: Build project (skip tests)
+        run: ./mvnw -B clean package -DskipTests
 
-      # Test with H2 profile
-      - name: Test with H2 Profile
-        run: |
-          echo "Testing with H2 profile..."
-          ./mvnw test -Ph2
-          ./mvnw verify -Ph2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      # Test with PostgreSQL profile
-      - name: Test with PostgreSQL Profile
-        run: |
-          echo "Testing with PostgreSQL profile..."
-          ./mvnw test -Ppostgres
-          ./mvnw verify -Ppostgres
-
-      # Test with SQLite profile
-      - name: Test with SQLite Profile
-        run: |
-          echo "Testing with SQLite profile..."
-          ./mvnw test -Psqlite
-          ./mvnw verify -Psqlite
-
-      # Verify each profile can start the application
-      - name: Verify H2 Application Startup
-        run: |
-          ./mvnw spring-boot:start -Ph2 -Dspring-boot.run.profiles=h2,test -Dspring-boot.run.fork=true
-          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
-          curl -f http://localhost:9090/api/rest/books || exit 1
-          ./mvnw spring-boot:stop
-
-      - name: Verify PostgreSQL Application Startup
-        run: |
-          ./mvnw spring-boot:start -Ppostgres -Dspring-boot.run.profiles=postgres,test -Dspring-boot.run.fork=true
-          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
-          curl -f http://localhost:9090/api/rest/books || exit 1
-          ./mvnw spring-boot:stop
-
-      - name: Verify SQLite Application Startup
-        run: |
-          ./mvnw spring-boot:start -Psqlite -Dspring-boot.run.profiles=sqlite,test -Dspring-boot.run.fork=true
-          timeout 30 bash -c 'until curl -f http://localhost:9090/actuator/health 2>/dev/null; do sleep 2; done'
-          curl -f http://localhost:9090/api/rest/books || exit 1
-          ./mvnw spring-boot:stop
-
-      - name: Upload All Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          name: test-results-all-profiles
-          path: |
-            target/surefire-reports/
-            target/failsafe-reports/
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push application image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.APP_IMAGE }}:latest
+            ${{ env.APP_IMAGE }}:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build and push Postgres image (includes init SQL)
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/postgres/Dockerfile
+          push: true
+          tags: |
+            ${{ env.POSTGRES_IMAGE }}:latest
+            ${{ env.POSTGRES_IMAGE }}:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set output image refs
+        id: set-outputs
+        run: |
+          echo "app_image=${{ env.APP_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "postgres_image=${{ env.POSTGRES_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  build-and-test:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+  
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          java-version: '23'
+          distribution: temurin
+  
+      - name: Grant execute permissions to mvnw
+        run: chmod +x mvnw
+
+      # Maven verify with Postgres profile will run after Postgres container is ready
+  
+      - name: Pull Postgres image
+        run: docker pull ${{ needs.build-and-push.outputs.postgres_image }}
+  
+      - name: Create docker network
+        run: docker network create omniapi-net || true
+  
+      - name: Start PostgreSQL container
+        run: |
+          docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=messalas -e POSTGRES_PASSWORD=mes123 -e POSTGRES_DB=booksdb ${{ needs.build-and-push.outputs.postgres_image }}
+  
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in {1..30}; do
+            docker exec test-postgres pg_isready -U messalas -d booksdb && break || sleep 2;
+          done
+
+      - name: Run Maven verify (generate JaCoCo report)
+        run: |
+          ./mvnw -B verify -Ppostgres
 
       - name: Upload JaCoCo coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
           path: target/site/jacoco/
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+  
+      - name: Pull application image
+        run: docker pull ${{ needs.build-and-push.outputs.app_image }}
+  
+      - name: Start application container
+        run: |
+          docker run -d --name test-app --network omniapi-net -e SPRING_PROFILES_ACTIVE=postgres -e SPRING_DATASOURCE_URL=jdbc:postgresql://test-postgres:5432/booksdb -e SPRING_DATASOURCE_USERNAME=messalas -e SPRING_DATASOURCE_PASSWORD=mes123 -p 9090:9090 ${{ needs.build-and-push.outputs.app_image }}
+  
+      - name: Wait for application HTTP port
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:9090/api/rest/authors >/dev/null; then
+              echo "app is up"; break
+            fi
+            sleep 2
+          done
+  
+      - name: Verify DB has authors
+        run: docker exec test-postgres psql -U messalas -d booksdb -c "SELECT count(*) FROM author;"
+
+      - name: Collect container logs
+        if: failure()
+        run: |
+          docker logs test-app > test-app.log 2>/dev/null || true
+          docker logs test-postgres > test-postgres.log 2>/dev/null || true
+          docker inspect test-app > test-app.inspect 2>/dev/null || true
+          docker inspect test-postgres > test-postgres.inspect 2>/dev/null || true
+
+      - name: Upload container logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs
+          path: |
+            test-app.log
+            test-postgres.log
+            test-app.inspect
+            test-postgres.inspect
+  
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f test-app || true
+          docker rm -f test-postgres || true
+          docker network rm omniapi-net || true
