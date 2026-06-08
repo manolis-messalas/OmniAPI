@@ -106,6 +106,9 @@ jobs:
       - name: Start PostgreSQL container
         run: |
           docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} ${{ needs.build-and-push.outputs.postgres_image }}
+        # Fail fast if container exits immediately
+          sleep 3
+          docker inspect test-postgres --format='{{.State.Status}}' | grep -q "running" || (echo "=== Postgres failed to start ===" && docker logs test-postgres && exit 1)
   
       - name: Wait for Postgres to be ready
         run: |
