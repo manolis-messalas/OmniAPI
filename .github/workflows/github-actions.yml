@@ -306,7 +306,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Full history needed for Gitleaks secret scanning
+          # Full history needed for GitLeaks secret scanning
           fetch-depth: 0
             
       - name: Set up JDK 23
