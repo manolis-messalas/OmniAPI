@@ -149,8 +149,39 @@ jobs:
             sleep 2
           done
   
+      - name: Check container health before DB verify
+        run: |
+          echo "=== Checking Postgres container status ==="
+          docker ps --filter name=test-postgres --format "table {{.Names}}\t{{.Status}}"
+          echo ""
+          echo "=== Checking App container status ==="
+          docker ps --filter name=test-app --format "table {{.Names}}\t{{.Status}}"
+          echo ""
+          echo "=== Testing Postgres connectivity ==="
+          docker exec test-postgres pg_isready -U messalas -d booksdb -v
+
       - name: Verify DB has authors
-        run: docker exec test-postgres psql -U messalas -d booksdb -c "SELECT count(*) FROM author;"
+        run: |
+          echo "Checking if test-postgres container is running..."
+          docker ps --filter name=test-postgres
+          echo ""
+          echo "Running query..."
+          docker exec test-postgres psql -U messalas -d booksdb -c "SELECT count(*) FROM author;"
+
+      - name: Diagnose container failure
+        if: failure()
+        run: |
+          echo "=== Container Status ==="
+          docker ps -a | grep test-postgres || echo "Container not found"
+          echo ""
+          echo "=== Postgres Container Logs ==="
+          docker logs test-postgres 2>&1 || echo "Could not retrieve logs"
+          echo ""
+          echo "=== Network Status ==="
+          docker network inspect omniapi-net 2>&1 || echo "Network not found"
+          echo ""
+          echo "=== Volume Status ==="
+          docker volume ls | grep postgres || echo "No postgres volumes"
 
       - name: Collect container logs
         if: failure()
