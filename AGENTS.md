@@ -325,9 +325,9 @@ docker exec omniapi-postgres pg_isready -U messalas -d booksdb
 ```
 
 ### Environment Variables
-- **POSTGRES_USER**: `messalas`
+- **POSTGRES_USER**: `AdministratorBooksDB!59`
 - **POSTGRES_DB**: `booksdb`
-- **POSTGRES_PASSWORD**: `mes123`
+- **POSTGRES_PASSWORD**: `$j3Suis@adm1nDB^^10`
 - **Host**: `localhost` (from host machine), `test-postgres` (from Docker network in CI)
 - **Port**: `5432`
 

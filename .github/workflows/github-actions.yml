@@ -108,11 +108,11 @@ jobs:
           docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} ${{ needs.build-and-push.outputs.postgres_image }}
           sleep 3
           docker inspect test-postgres --format='{{.State.Status}}' | grep -q "running" || (echo "=== Postgres failed to start ===" && docker logs test-postgres && exit 1)
-  
+
       - name: Wait for Postgres to be ready
         run: |
           for i in {1..30}; do
-            docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d {{ secrets.POSTGRES_DB }} && break || sleep 2;
+            docker exec test-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} && break || sleep 2;
           done
 
       - name: Run Maven verify (generate JaCoCo report)
@@ -140,7 +140,7 @@ jobs:
   
       - name: Start application container
         run: |
-          docker run -d --name test-app --network omniapi-net -e SPRING_PROFILES_ACTIVE=postgres -e SPRING_DATASOURCE_URL=jdbc:postgresql://test-postgres:5432/{{ secrets.POSTGRES_DB }} -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -p 9090:9090 ${{ needs.build-and-push.outputs.app_image }}
+          docker run -d --name test-app --network omniapi-net -e SPRING_PROFILES_ACTIVE=postgres -e SPRING_DATASOURCE_URL=jdbc:postgresql://test-postgres:5432/${{ secrets.POSTGRES_DB }} -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -p 9090:9090 ${{ needs.build-and-push.outputs.app_image }}
   
       - name: Wait for application HTTP port
         run: |
@@ -168,7 +168,7 @@ jobs:
           docker ps --filter name=test-postgres
           echo ""
           echo "Running query..."
-          docker exec test-postgres psql -U ${{ secrets.POSTGRES_USER }} -d {{ secrets.POSTGRES_DB }} -c "SELECT count(*) FROM author;"
+          docker exec test-postgres psql -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "SELECT count(*) FROM author;"
 
       - name: Diagnose container failure
         if: failure()
