@@ -105,7 +105,7 @@ jobs:
   
       - name: Start PostgreSQL container
         run: |
-          docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=messalas -e POSTGRES_PASSWORD=mes123 -e POSTGRES_DB=booksdb ${{ needs.build-and-push.outputs.postgres_image }}
+          docker run -d --name test-postgres --network omniapi-net -p 5432:5432 -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} ${{ needs.build-and-push.outputs.postgres_image }}
   
       - name: Wait for Postgres to be ready
         run: |
@@ -158,7 +158,7 @@ jobs:
           docker ps --filter name=test-app --format "table {{.Names}}\t{{.Status}}"
           echo ""
           echo "=== Testing Postgres connectivity ==="
-          docker exec test-postgres pg_isready -U messalas -d booksdb -v
+          docker exec test-postgres pg_isready -U messalas -d booksdb
 
       - name: Verify DB has authors
         run: |
