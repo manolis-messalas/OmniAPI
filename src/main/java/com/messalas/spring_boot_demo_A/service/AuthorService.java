@@ -56,4 +56,14 @@ public class AuthorService {
         return AuthorMapper.INSTANCE.authorEntityToAuthorDTO(authorEntity);
     }
 
+    @Transactional
+    public void updateAuthor(Long id, AuthorDTO authorDTO) {
+        AuthorEntity author = authorRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Author not found with ID: " + id));
+        author.setName(authorDTO.getAuthorName());
+        author.setDateOfBirth(authorDTO.getDateOfBirth());
+        author.setCountryOfOrigin(authorDTO.getCountryOfOrigin());
+        authorRepository.save(author);
+    }
+
 }

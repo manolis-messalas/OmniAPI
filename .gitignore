@@ -32,7 +32,11 @@ build/
 ### VS Code ###
 .vscode/
 
-### ENVIRONMENT VARIABLES ###
+### ENVIRONMENT  ###
 .env
 
 .trivy/
+
+### Frontend ###
+frontend/node_modules/
+frontend/dist/

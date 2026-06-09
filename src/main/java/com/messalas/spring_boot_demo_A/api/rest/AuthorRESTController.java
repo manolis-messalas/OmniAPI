@@ -33,6 +33,12 @@ public class AuthorRESTController {
         return ResponseEntity.ok(authorService.getAuthorById(id));
     }
 
+    @PutMapping("/authors/{id}")
+    public ResponseEntity<Void> updateAuthor(@PathVariable Long id, @RequestBody AuthorDTO authorDTO) {
+        authorService.updateAuthor(id, authorDTO);
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/authors/{id}")
     public ResponseEntity<Void> deleteAuthor(@PathVariable Long id) {
         authorService.deleteAuthor(id);

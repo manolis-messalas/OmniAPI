@@ -40,6 +40,12 @@ public class BooksRESTController {
     @GetMapping("/book/{name}")
     public ResponseEntity<BookDTO> getBook(@PathVariable String name){ return ResponseEntity.ok(bookService.findBookByName(name)); }
 
+    @PutMapping("/books/{id}")
+    public ResponseEntity<Void> updateBook(@PathVariable Long id, @RequestBody BookDTO bookDTO) {
+        bookService.updateBook(id, bookDTO);
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/books/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         bookService.deleteBook(id);

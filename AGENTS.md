@@ -152,11 +152,67 @@ public class AuthorServiceTest {
 
 ---
 
-## UI Layer (Planned)
-- Framework: [React/Angular/Thymeleaf — pick one]
-- Entry point: src/main/resources/static/ or separate frontend module
-- API base URL: http://localhost:9090/api/rest
-- Auth: JWT 
+## Frontend
+
+A React 18 single-page application lives in `frontend/` at the project root.
+
+### Stack
+- **Framework**: React 18 + React Router 6
+- **Build tool**: Vite 5
+- **Styling**: Tailwind CSS 3
+- **HTTP client**: Axios 1.x
+- **Dev port**: `http://localhost:5173` (proxies `/api` → `http://localhost:9090`)
+
+### Running the Frontend
+```bash
+cd frontend
+npm install       # first time only
+npm run dev       # starts Vite dev server at http://localhost:5173
+npm run build     # production build to frontend/dist/
+```
+
+### Directory Structure
+```
+frontend/
+├── package.json
+├── vite.config.js          # /api proxy → localhost:9090
+├── index.html
+├── tailwind.config.js
+├── postcss.config.js
+└── src/
+    ├── index.css           # Tailwind directives
+    ├── main.jsx            # React root, wraps <AuthProvider>
+    ├── App.jsx             # Router: /login → LoginPage, /admin → AdminPage (protected)
+    ├── context/
+    │   └── AuthContext.jsx # Stores base64 credentials in localStorage (key: omniapi_credentials)
+    ├── api/
+    │   ├── client.js       # Axios instance, injects Authorization: Basic header on every request
+    │   ├── authorsApi.js   # getAuthors, getAuthor, createAuthor, updateAuthor, deleteAuthor
+    │   └── booksApi.js     # getBooks, addBook, addBookAuthor, updateBook, deleteBook
+    ├── pages/
+    │   ├── LoginPage.jsx   # Validates credentials against GET /api/rest/authors before storing
+    │   └── AdminPage.jsx   # Authors | Books tabs with Sign Out
+    └── components/
+        ├── authors/
+        │   ├── AuthorList.jsx  # Table with inline Edit/Delete; opens AuthorForm panel
+        │   └── AuthorForm.jsx  # Shared create/update form (fields: authorName, dateOfBirth, countryOfOrigin)
+        └── books/
+            ├── BookList.jsx    # Table with inline Edit/Delete; opens BookForm panel
+            └── BookForm.jsx    # Shared create/update form; author selected from dropdown
+```
+
+### Authentication Flow
+- Login page sends `GET /api/rest/authors` with `Authorization: Basic <base64(user:pass)>` to validate credentials.
+- On success, credentials are stored as `btoa(username:password)` in `localStorage`.
+- `client.js` reads `omniapi_credentials` from localStorage and injects the header on every request.
+- Logout clears localStorage and redirects to `/login`.
+- Default credentials: **admin / admin** (configured in `SecurityConfig.java`).
+
+### Adding a New Frontend Feature
+1. Add the API function in `src/api/authorsApi.js` or `booksApi.js` (mirrors a backend endpoint).
+2. Create or update the component in `src/components/`.
+3. Import and render it in the relevant page (`AdminPage.jsx` or a new page).
+4. Add a `<Route>` in `App.jsx` if it's a new page.
 
 ## Build & Development Workflow
 
@@ -196,9 +252,9 @@ docker-compose down       # Stops container
 ## Security & Authorization
 
 - **Framework**: Spring Security with filter chain (see `src/main/resources/Security & Authorization.md` for OWASP mapping)
-- **Default Credentials**: user=`user`, password=empty (set in `application.properties`)
+- **Production config**: `SecurityConfig.java` (`@Profile("!test")`) — HTTP Basic auth on `/api/rest/**`, CORS allowed from `http://localhost:5173`, in-memory user `admin/admin`
 - **Test Profile**: `TestSecurityConfig` with `@Profile("test")` permits all requests for testing
-- **CSRF**: Enabled by default; disabled in test security config for simplicity
+- **CSRF**: Disabled in both configs (REST API + SPA clients don't use CSRF cookies)
 
 ### Key Filters (In Order)
 1. `SecurityContextHolderFilter` → Load authentication
@@ -241,6 +297,14 @@ docker-compose down       # Stops container
 ## File Organization Summary
 
 ```
+frontend/                                   # React SPA (Vite + Tailwind)
+├── src/
+│   ├── context/AuthContext.jsx             # Auth state + localStorage
+│   ├── api/                                # Axios wrappers for REST endpoints
+│   ├── pages/LoginPage.jsx                 # Login form
+│   ├── pages/AdminPage.jsx                 # Authors | Books admin tabs
+│   └── components/authors/ books/         # List + Form components per entity
+
 src/main/java/com/messalas/spring_boot_demo_A/
 ├── SpringBootDemoAApplication.java         # Entry point
 ├── api/
@@ -327,7 +391,7 @@ docker exec omniapi-postgres pg_isready -U messalas -d booksdb
 ### Environment Variables
 - **POSTGRES_USER**: `AdministratorBooksDB!59`
 - **POSTGRES_DB**: `booksdb`
-- **POSTGRES_PASSWORD**: `$j3Suis@adm1nDB^^10`
+- **POSTGRES_PASSWORD**: `j3Suis@adm1nDB10@`
 - **Host**: `localhost` (from host machine), `test-postgres` (from Docker network in CI)
 - **Port**: `5432`
 

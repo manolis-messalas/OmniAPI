@@ -69,4 +69,19 @@ public class BookService {
         bookRepository.deleteById(id);
     }
 
+    @Transactional
+    public void updateBook(Long id, BookDTO bookDTO) {
+        BookEntity book = bookRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Book not found with ID: " + id));
+        book.setName(bookDTO.getBookName());
+        book.setPublicationYear(bookDTO.getPublicationYear());
+        if (bookDTO.getAuthorDTO() != null && bookDTO.getAuthorDTO().getAuthorName() != null) {
+            AuthorEntity author = authorRepository.findByName(bookDTO.getAuthorDTO().getAuthorName())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()));
+            book.setAuthorEntity(author);
+        }
+        bookRepository.save(book);
+    }
+
 }
