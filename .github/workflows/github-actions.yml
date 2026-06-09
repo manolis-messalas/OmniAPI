@@ -15,9 +15,10 @@ permissions:
 env:
   APP_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi
   POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi-postgres
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/omniapi-frontend
 
 # ============================================================
-# JOB 1: UNIT TESTS
+# JOB 1: UNIT TESTS (Backend)
 # Fast feedback loop. H2 in-memory, no Docker required.
 # Runs on every push and PR. If this fails nothing else runs.
 # ============================================================
@@ -51,19 +52,62 @@ jobs:
           path: target/surefire-reports/
 
   # ============================================================
-  # JOB 2: BUILD AND PUSH IMAGES
-  # Only runs after unit tests pass.
+  # JOB 2: FRONTEND CI
+  # Validates the React app builds successfully.
+  # Runs in parallel with unit-tests — no dependency between them.
+  # No tests yet — npm install + build only.
+  # Produces a dist artifact for Docker image build.
+  # ============================================================
+  frontend-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify dist was produced
+        working-directory: frontend
+        run: |
+          ls -la dist/
+          [ -f dist/index.html ] || (echo "ERROR: index.html not found in dist/" && exit 1)
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          if-no-files-found: error
+
+  # ============================================================
+  # JOB 3: BUILD AND PUSH IMAGES
+  # Only runs after BOTH unit-tests AND frontend-ci pass.
   # Only pushes images on master — not on PRs.
   # Produces versioned image tags for use by downstream jobs.
   # ============================================================
   build-and-push:
-    needs: unit-tests
+    needs: [ unit-tests, frontend-ci ]
     runs-on: ubuntu-latest
     environment: ci
 
     outputs:
       app_image: ${{ steps.set-outputs.outputs.app_image }}
       postgres_image: ${{ steps.set-outputs.outputs.postgres_image }}
+      frontend_image: ${{ steps.set-outputs.outputs.frontend_image }}
 
     steps:
       - name: Checkout repository
@@ -82,6 +126,12 @@ jobs:
       - name: Build JAR (skip tests — already ran in unit-tests job)
         run: ./mvnw -B clean package -DskipTests
 
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -97,14 +147,12 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          # Only push on master, not on PRs
           push: ${{ github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.APP_IMAGE }}:latest
             ${{ env.APP_IMAGE }}:${{ github.sha }}
             ${{ env.APP_IMAGE }}:${{ github.ref_name }}-${{ github.sha }}
           platforms: linux/amd64,linux/arm64
-          # Layer caching — speeds up repeated builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -122,23 +170,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.frontend
+          push: ${{ github.ref == 'refs/heads/master' }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:${{ github.ref_name }}-${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Set output image refs
         id: set-outputs
         run: |
           echo "app_image=${{ env.APP_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "postgres_image=${{ env.POSTGRES_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "frontend_image=${{ env.FRONTEND_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
 
   # ============================================================
-  # JOB 3: INTEGRATION TESTS
+  # JOB 4: INTEGRATION TESTS (Backend)
   # Runs against the actual pushed image — not a source rebuild.
   # Tests the artifact we ship, not a recompile.
-  # Runs in parallel with security-scan.
+  # Runs in parallel with security-scan and frontend-smoke-test.
   # ============================================================
   integration-tests:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: ci
-    # Only run integration tests on master where images were pushed
     if: github.ref == 'refs/heads/master'
 
     steps:
@@ -191,8 +253,6 @@ jobs:
             (echo "=== Postgres never became ready ===" && docker logs test-postgres && exit 1)
 
       - name: Run integration tests (Postgres profile)
-        # Tests run against real Postgres — but compile from source.
-        # This validates application logic + DB interaction.
         run: ./mvnw -B verify -Ppostgres
 
       - name: Upload JaCoCo coverage report
@@ -239,6 +299,20 @@ jobs:
           echo "ERROR: App never became ready after 120 seconds"
           docker logs test-app
           exit 1
+
+      - name: Smoke test — health endpoint
+        run: |
+          HEALTH=$(curl -sf http://localhost:9090/actuator/health)
+          echo $HEALTH | python3 -m json.tool
+          echo $HEALTH | python3 -c "
+          import sys, json
+          h = json.load(sys.stdin)
+          assert h['status'] == 'UP', f'App status is not UP: {h[\"status\"]}'
+          db = h.get('components', {}).get('db', {})
+          assert db.get('status') == 'UP', f'DB status is not UP: {db.get(\"status\")}'
+          print('✓ App is UP')
+          print('✓ Database is UP')
+          "
 
       - name: Verify DB state — authors seeded correctly
         run: |
@@ -291,9 +365,59 @@ jobs:
           docker network rm omniapi-net || true
 
   # ============================================================
-  # JOB 4: SECURITY SCAN
-  # Runs in parallel with integration-tests after build-and-push.
-  # Scans dependencies, Docker image, and git history for secrets.
+  # JOB 5: FRONTEND SMOKE TEST
+  # Validates the frontend Docker image starts and serves content.
+  # Runs in parallel with integration-tests and security-scan.
+  # ============================================================
+  frontend-smoke-test:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ci
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Pull frontend image
+        run: docker pull ${{ needs.build-and-push.outputs.frontend_image }}
+
+      - name: Start frontend container
+        run: |
+          docker run -d \
+            --name test-frontend \
+            -p 80:80 \
+            ${{ needs.build-and-push.outputs.frontend_image }}
+          sleep 3
+          docker inspect test-frontend --format='{{.State.Status}}' | grep -q "running" || \
+            (echo "=== Frontend failed to start ===" && docker logs test-frontend && exit 1)
+
+      - name: Wait for frontend to serve content
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://localhost:80 >/dev/null 2>&1; then
+              echo "Frontend is serving content"
+              exit 0
+            fi
+            echo "Attempt $i/30: frontend not ready yet..."
+            sleep 2
+          done
+          echo "ERROR: Frontend never became ready"
+          docker logs test-frontend
+          exit 1
+
+      - name: Verify index.html is served
+        run: |
+          RESPONSE=$(curl -sf http://localhost:80)
+          echo "$RESPONSE" | grep -q "<html" || \
+            (echo "ERROR: Response does not contain HTML" && exit 1)
+          echo "✓ Frontend serving valid HTML"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f test-frontend || true
+
+  # ============================================================
+  # JOB 6: SECURITY SCAN
+  # Runs in parallel with integration-tests and frontend-smoke-test.
+  # Scans dependencies, Docker images, and git history for secrets.
   # Results appear in GitHub Security → Code Scanning tab.
   # ============================================================
   security-scan:
@@ -306,9 +430,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Full history needed for GitLeaks secret scanning
           fetch-depth: 0
-            
+
       - name: Set up JDK 23
         uses: actions/setup-java@v4
         with:
@@ -319,8 +442,6 @@ jobs:
       - name: Grant execute permissions to mvnw
         run: chmod +x mvnw
 
-      # Pre-populate local Maven cache so Trivy reads from ~/.m2
-      # instead of hammering Maven Central and hitting rate limits
       - name: Resolve Maven dependencies into local cache
         run: ./mvnw -B dependency:resolve dependency:resolve-plugins -q
 
@@ -333,28 +454,44 @@ jobs:
           output: 'trivy-fs.sarif'
           severity: 'CRITICAL,HIGH'
 
-      - name: Scan Docker image for CVEs
+      - name: Scan backend image for CVEs
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ needs.build-and-push.outputs.app_image }}
           format: 'sarif'
-          output: 'trivy-image.sarif'
+          output: 'trivy-app-image.sarif'
           severity: 'CRITICAL,HIGH'
 
-      - name: Upload filesystem scan results to Security tab
+      - name: Scan frontend image for CVEs
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ needs.build-and-push.outputs.frontend_image }}
+          format: 'sarif'
+          output: 'trivy-frontend-image.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload filesystem scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-fs.sarif'
           category: 'trivy-filesystem'
 
-      - name: Upload image scan results to Security tab
+      - name: Upload backend image scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-image.sarif'
-          category: 'trivy-image'
+          sarif_file: 'trivy-app-image.sarif'
+          category: 'trivy-app-image'
+
+      - name: Upload frontend image scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend-image.sarif'
+          category: 'trivy-frontend-image'
 
       - name: Scan git history for leaked secrets
         uses: gitleaks/gitleaks-action@v2
@@ -362,12 +499,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================
-  # JOB 5: VALIDATE
-  # Final gate. Runs only after both integration-tests AND
-  # security-scan pass. Confirms the pipeline is fully green.
+  # JOB 7: VALIDATE
+  # Final gate. Runs only after integration-tests, frontend-smoke-test
+  # AND security-scan all pass. Confirms the pipeline is fully green.
   # ============================================================
   validate:
-    needs: [ integration-tests, security-scan ]
+    needs: [ integration-tests, frontend-smoke-test, security-scan ]
     runs-on: ubuntu-latest
     environment: ci
     if: github.ref == 'refs/heads/master'
@@ -378,14 +515,17 @@ jobs:
           echo "========================================"
           echo "  OmniAPI Pipeline Summary"
           echo "========================================"
-          echo "  Commit  : ${{ github.sha }}"
-          echo "  Branch  : ${{ github.ref_name }}"
-          echo "  Actor   : ${{ github.actor }}"
-          echo "  App     : ${{ needs.build-and-push.outputs.app_image }}"
-          echo "  Postgres: ${{ needs.build-and-push.outputs.postgres_image }}"
+          echo "  Commit   : ${{ github.sha }}"
+          echo "  Branch   : ${{ github.ref_name }}"
+          echo "  Actor    : ${{ github.actor }}"
+          echo "  App      : ${{ needs.build-and-push.outputs.app_image }}"
+          echo "  Postgres : ${{ needs.build-and-push.outputs.postgres_image }}"
+          echo "  Frontend : ${{ needs.build-and-push.outputs.frontend_image }}"
           echo ""
-          echo "  ✓ Unit tests passed"
+          echo "  ✓ Backend unit tests passed"
+          echo "  ✓ Frontend build passed"
           echo "  ✓ Images built and pushed"
-          echo "  ✓ Integration tests passed"
+          echo "  ✓ Backend integration tests passed"
+          echo "  ✓ Frontend smoke test passed"
           echo "  ✓ Security scan passed"
           echo "========================================"
