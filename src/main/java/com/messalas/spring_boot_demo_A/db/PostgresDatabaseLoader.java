@@ -1,7 +1,9 @@
 package com.messalas.spring_boot_demo_A.db;
 
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
+import com.messalas.spring_boot_demo_A.model.dto.UserDetails;
 import com.messalas.spring_boot_demo_A.service.BookService;
+import com.messalas.spring_boot_demo_A.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -18,7 +20,7 @@ public class PostgresDatabaseLoader {
     private static final Logger log = LoggerFactory.getLogger(PostgresDatabaseLoader.class);
 
     @Bean
-    CommandLineRunner initPostgresDatabase(BookService bookService) {
+    CommandLineRunner initPostgresDatabase(BookService bookService, UserService userService) {
         return args -> {
             log.info("Loading PostgreSQL seed data after Hibernate table creation...");
             
@@ -70,6 +72,12 @@ public class PostgresDatabaseLoader {
                         "Israel",
                         "Yuval Noah Harari",
                         "2015"
+                ));
+
+                userService.saveUser(new UserDetails(
+                                 "ManoloAdmin",
+                        "@@password!!90",
+                        "ADMIN"
                 ));
 
                 log.info("PostgreSQL seed data loading complete! Inserted 6 books with authors.");

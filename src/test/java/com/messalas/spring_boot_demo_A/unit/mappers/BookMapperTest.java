@@ -58,7 +58,7 @@ public class BookMapperTest {
             BookDTO bookDTOToTest = BookMapper.INSTANCE.bookEntityToBookDTO(bookEntity);
             logger.info("BookMapper instance created");
 
-            Assertions.assertNotNull(bookDTO);
+            Assertions.assertNotNull(bookDTOToTest);
             Assertions.assertEquals(bookEntity.getId(), bookDTOToTest.getId());
             Assertions.assertEquals(bookEntity.getName(), bookDTOToTest.getBookName());
             Assertions.assertEquals(bookEntity.getPublicationYear(), bookDTOToTest.getPublicationYear());
