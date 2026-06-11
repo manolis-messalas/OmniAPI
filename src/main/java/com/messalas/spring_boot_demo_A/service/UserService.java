@@ -2,13 +2,17 @@ package com.messalas.spring_boot_demo_A.service;
 
 import com.messalas.spring_boot_demo_A.model.dto.UserDetails;
 import com.messalas.spring_boot_demo_A.model.entities.UserEntity;
+import com.messalas.spring_boot_demo_A.model.mappers.UserMapper;
 import com.messalas.spring_boot_demo_A.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class UserService {
@@ -19,10 +23,10 @@ public class UserService {
     private UserRepository userRepository;
 
     @Transactional
-    public void saveUser(UserDetails userDetails){
+    public Long saveUser(UserDetails userDetails){
         log.info("Saving..."+ userDetails.toString());
-        UserEntity userEntityToSave = new UserEntity(userDetails.getId(), userDetails.getUsername(), userDetails.getPassword(), userDetails.getRole());
-        userRepository.save(userEntityToSave);
+        UserEntity userEntityToSave = UserMapper.INSTANCE.userDetailsToUserEntity(userDetails);
+        return userRepository.save(userEntityToSave).getId();
     }
 
     public UserDetails loadUserByUsername(String username)
@@ -39,6 +43,23 @@ public class UserService {
                 .password(user.getPassword())   // already bcrypt hashed in DB
                 .role(user.getRole().replace("ROLE_", ""))
                 .build();
+    }
+
+    @Transactional
+    public List<UserDetails> getAllUsers(){
+        List<UserEntity> userEntities = userRepository.findAll();
+        return userEntities.stream()
+                .map(UserMapper.INSTANCE::userEntityToUserDetails)
+                .toList();
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new EntityNotFoundException("User with id " + id + " not found");
+        }
+
+        userRepository.deleteById(id);
     }
 
 

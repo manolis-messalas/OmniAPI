@@ -1,13 +1,16 @@
 package com.messalas.spring_boot_demo_A.unit;
 
 import com.messalas.spring_boot_demo_A.api.rest.AuthorRESTController;
+import com.messalas.spring_boot_demo_A.api.rest.UserRESTController;
 import com.messalas.spring_boot_demo_A.model.builders.BookAuthorDTOBuilder;
 import com.messalas.spring_boot_demo_A.api.rest.BooksRESTController;
 import com.messalas.spring_boot_demo_A.model.dto.AuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookAuthorDTO;
 import com.messalas.spring_boot_demo_A.model.dto.BookDTO;
+import com.messalas.spring_boot_demo_A.model.dto.UserDetails;
 import com.messalas.spring_boot_demo_A.service.AuthorService;
 import com.messalas.spring_boot_demo_A.service.BookService;
+import com.messalas.spring_boot_demo_A.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +32,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-@WebMvcTest(controllers ={BooksRESTController.class, AuthorRESTController.class})
+@WebMvcTest(controllers ={BooksRESTController.class, AuthorRESTController.class, UserRESTController.class})
 public class RESTControllersTest {
 
     private static final Logger logger = LoggerFactory.getLogger(RESTControllersTest.class);
@@ -40,11 +43,17 @@ public class RESTControllersTest {
     @Autowired
     private AuthorRESTController authorRESTController;
 
+    @Autowired
+    private UserRESTController userRESTController;
+
     @MockBean
     private BookService bookService;
 
     @MockBean
     private AuthorService authorService;
+
+    @MockBean
+    private UserService userService;
 
     private final boolean testPassed = true;
 
@@ -292,6 +301,110 @@ public class RESTControllersTest {
         verify(authorService).deleteAuthor(authorId);
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    //    User Integration Tests
+    @Test
+    public void testCreateUser() {
+        UserDetails userDetails = UserDetails.builder()
+                .username("ManoloAdmin")
+                .password("@@password!!90")
+                .role("ADMIN")
+                .build();
+
+        logger.info("Starting testCreateUser with DTO: {}", userDetails);
+
+        when(userService.saveUser(userDetails)).thenReturn(1L);
+
+        ResponseEntity<Long> response = userRESTController.createUser(userDetails);
+
+        verify(userService).saveUser(userDetails);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals(1L, response.getBody());
+
+        logger.info("testCreateUser completed successfully with id: {}", response.getBody());
+    }
+
+    @Test
+    public void testGetUserByUsername() {
+        String username = "ManoloAdmin";
+
+        UserDetails expectedUser = UserDetails.builder()
+                .id(1L)
+                .username(username)
+                .password("$2a$10$bcryptHashedPassword")
+                .role("ADMIN")
+                .build();
+
+        logger.info("Starting testGetUserByUsername with username: {}", username);
+
+        when(userService.loadUserByUsername(username)).thenReturn(expectedUser);
+
+        ResponseEntity<UserDetails> response = userRESTController.getUser(username);
+
+        verify(userService).loadUserByUsername(username);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals(1L, response.getBody().getId());
+        assertEquals(username, response.getBody().getUsername());
+        assertEquals("$2a$10$bcryptHashedPassword", response.getBody().getPassword());
+        assertEquals("ADMIN", response.getBody().getRole());
+
+        logger.info("testGetUserByUsername completed successfully, found user: {}", response.getBody());
+    }
+
+    @Test
+    public void testGetAllUsers() {
+        UserDetails user1 = UserDetails.builder()
+                .id(1L)
+                .username("ManoloAdmin")
+                .password("$2a$10$bcryptHashedPassword")
+                .role("ADMIN")
+                .build();
+
+        UserDetails user2 = UserDetails.builder()
+                .id(2L)
+                .username("RegularUser")
+                .password("$2a$10$anotherHashedPassword")
+                .role("USER")
+                .build();
+
+        List<UserDetails> expectedUsers = Arrays.asList(user1, user2);
+
+        logger.info("Starting testGetAllUsers");
+
+        when(userService.getAllUsers()).thenReturn(expectedUsers);
+
+        ResponseEntity<List<UserDetails>> response = userRESTController.getUsers();
+
+        verify(userService).getAllUsers();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals(2, response.getBody().size());
+
+        assertEquals(1L, response.getBody().get(0).getId());
+        assertEquals("ManoloAdmin", response.getBody().get(0).getUsername());
+        assertEquals("ADMIN", response.getBody().get(0).getRole());
+
+        assertEquals(2L, response.getBody().get(1).getId());
+        assertEquals("RegularUser", response.getBody().get(1).getUsername());
+        assertEquals("USER", response.getBody().get(1).getRole());
+        logger.info("testGetAllUsers completed successfully with {} users", response.getBody().size());
+    }
+
+    @Test
+    public void testDeleteUser() {
+        Long userId = 1L;
+
+        logger.info("Starting testDeleteUser with id: {}", userId);
+
+        ResponseEntity<Void> response = userRESTController.deleteUser(userId);
+
+        verify(userService).deleteUser(userId);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+        logger.info("testDeleteUser completed successfully");
     }
 
 }
