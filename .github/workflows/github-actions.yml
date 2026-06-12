@@ -39,9 +39,10 @@ jobs:
           cache: maven
 
       - name: Grant execute permissions to mvnw
-        run: chmod +x mvnw
+        run: chmod +x backend/mvnw
 
       - name: Run unit tests (H2)
+        working-directory: backend
         run: ./mvnw -B test -Ph2
 
       - name: Upload unit test results
@@ -49,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: target/surefire-reports/
+          path: backend/target/surefire-reports/
 
   # ============================================================
   # JOB 2: FRONTEND CI
@@ -121,9 +122,10 @@ jobs:
           cache: maven
 
       - name: Grant execute permissions to mvnw
-        run: chmod +x mvnw
+        run: chmod +x backend/mvnw
 
       - name: Build JAR (skip tests — already ran in unit-tests job)
+        working-directory: backend
         run: ./mvnw -B clean package -DskipTests
 
       - name: Download frontend dist
@@ -145,8 +147,8 @@ jobs:
       - name: Build and push application image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.APP_IMAGE }}:latest
@@ -215,7 +217,7 @@ jobs:
           cache: maven
 
       - name: Grant execute permissions to mvnw
-        run: chmod +x mvnw
+        run: chmod +x backend/mvnw
 
       - name: Pull Postgres image
         run: docker pull ${{ needs.build-and-push.outputs.postgres_image }}
@@ -253,6 +255,7 @@ jobs:
             (echo "=== Postgres never became ready ===" && docker logs test-postgres && exit 1)
 
       - name: Run integration tests (Postgres profile)
+        working-directory: backend
         run: ./mvnw -B verify -Ppostgres
 
       - name: Upload JaCoCo coverage report
@@ -260,7 +263,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
-          path: target/site/jacoco/
+          path: backend/target/site/jacoco/
 
       - name: Upload integration test results
         if: always()
@@ -268,8 +271,8 @@ jobs:
         with:
           name: integration-test-results
           path: |
-            target/surefire-reports/
-            target/failsafe-reports/
+            backend/target/surefire-reports/
+            backend/target/failsafe-reports/
 
       - name: Start application container
         run: |
@@ -440,9 +443,10 @@ jobs:
           cache: maven
 
       - name: Grant execute permissions to mvnw
-        run: chmod +x mvnw
+        run: chmod +x backend/mvnw
 
       - name: Resolve Maven dependencies into local cache
+        working-directory: backend
         run: ./mvnw -B dependency:resolve dependency:resolve-plugins -q
 
       - name: Scan filesystem for dependency CVEs
