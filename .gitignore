@@ -35,6 +35,9 @@ build/
 ### ENVIRONMENT  ###
 .env
 
+### TLS ###
+backend/keystore/
+
 .trivy/
 
 ### Frontend ###

@@ -253,7 +253,7 @@ docker-compose down       # Stops container
 
 ## Security & Authorization
 
-- **Framework**: Spring Security with filter chain (see `src/main/resources/Security & Authorization.md` for OWASP mapping)
+- **Framework**: Spring Security with filter chain (see `docs/Security.md` for OWASP mapping)
 - **Production config**: `SecurityConfig.java` (`@Profile("!test")`) — HTTP Basic auth on `/api/rest/**`, CORS allowed from `http://localhost:5173`, in-memory user `admin/admin`
 - **Test Profile**: `TestSecurityConfig` with `@Profile("test")` permits all requests for testing
 - **CSRF**: Disabled in both configs (REST API + SPA clients don't use CSRF cookies)
@@ -265,6 +265,21 @@ docker-compose down       # Stops container
 4. `ExceptionTranslationFilter` → Handle auth errors (A05)
 
 Note: `CsrfFilter` is **not** in the chain — both `SecurityConfig` and `TestSecurityConfig` call `.csrf(AbstractHttpConfigurer::disable)`, which omits the filter entirely rather than adding a no-op.
+
+### HTTPS / TLS (opt-in)
+
+Off by default — local dev, tests, and CI all keep running on plain HTTP unless explicitly enabled.
+
+- **Enable**: set `SSL_ENABLED=true` and `SSL_KEYSTORE_PASSWORD=<password>` (both in `.env`, gitignored) before running the app.
+- **Keystore**: self-signed PKCS12 cert at `backend/keystore/omniapi.p12` (gitignored — not committed). Regenerate it with:
+  ```bash
+  keytool -genkeypair -alias omniapi -keyalg RSA -keysize 2048 -storetype PKCS12 \
+    -keystore backend/keystore/omniapi.p12 -validity 3650 \
+    -dname "CN=localhost, OU=OmniAPI, O=OmniAPI, L=Dev, ST=Dev, C=US" \
+    -storepass "$SSL_KEYSTORE_PASSWORD" -keypass "$SSL_KEYSTORE_PASSWORD"
+  ```
+- **Behavior when enabled**: `server.port` (9090) serves HTTPS; `HttpToHttpsRedirectConfig` (`security/`) adds a second Tomcat connector on `server.http.port` (8080, override via `HTTP_PORT`) with a `SecurityConstraint` requiring confidential transport, so Tomcat redirects HTTP → HTTPS at the container level — the modern replacement for Spring Security's deprecated `requiresChannel()`. `SecurityConfig` explicitly sets HSTS (`includeSubDomains`, 1-year max-age).
+- **Browser/client note**: the cert is self-signed, so browsers/`curl` will warn — use `curl -k` or trust the cert locally.
 
 ---
 
@@ -415,7 +430,7 @@ Defined in `.env` (gitignored — actual values are never committed; read them l
 ---
 
 ## External Resources
-- **Security Deep Dive**: `Security & Authorization.md` (OWASP Top 10 mapping & filter chain)
+- **Security Deep Dive**: `docs/Security.md` (OWASP Top 10 mapping & filter chain)
 - **Getting Started**: `README.md` (quick start commands for each database profile)
 - **Docker Setup**: `docker-compose.yml` (PostgreSQL only—H2/SQLite don't require containers)
 

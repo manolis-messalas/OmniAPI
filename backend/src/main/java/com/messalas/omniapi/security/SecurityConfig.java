@@ -33,7 +33,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/rest/**").authenticated()
                 .anyRequest().permitAll()
             )
-            .httpBasic(Customizer.withDefaults());
+            .httpBasic(Customizer.withDefaults())
+            .headers(headers -> headers.httpStrictTransportSecurity(hsts -> hsts
+                .includeSubDomains(true)
+                .maxAgeInSeconds(31536000)
+            ));
+        // HTTP -> HTTPS redirection (when TLS is enabled) happens at the servlet container
+        // level via a SecurityConstraint + Connector.redirectPort, see HttpToHttpsRedirectConfig.
         return http.build();
     }
 
