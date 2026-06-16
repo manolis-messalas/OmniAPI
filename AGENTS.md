@@ -1,8 +1,10 @@
 # AGENTS.md - OmniAPI Development Guide
 
+> **Scope note:** this file describes what is **already implemented** and verified against the current codebase. For planned/aspirational work (Kubernetes, Kafka, GraphQL, gRPC, WebSockets, etc.), see [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md). Do not add 🔲/planned items here — they belong in the roadmap.
+
 ## Project Overview
 
-**OmniAPI** is a Spring Boot 3.5.8 multi-protocol backend serving Books and Authors data through REST, SOAP, and other transport mechanisms. Java 23 is required.
+**OmniAPI** is a Spring Boot 3.5.8 multi-protocol backend serving Books and Authors data through REST and SOAP. Java 23 is required.
 
 ### Core Stack
 - **Framework**: Spring Boot 3.5.8 + Spring Security + Spring Data JPA
@@ -259,9 +261,10 @@ docker-compose down       # Stops container
 ### Key Filters (In Order)
 1. `SecurityContextHolderFilter` → Load authentication
 2. `AuthorizationFilter` → Check permissions (A01 Broken Access Control)
-3. `CsrfFilter` → Validate CSRF tokens (A04, A05)
-4. `HeaderWriterFilter` → Add security headers (A03, A05)
-5. `ExceptionTranslationFilter` → Handle auth errors (A05)
+3. `HeaderWriterFilter` → Add security headers (A03, A05)
+4. `ExceptionTranslationFilter` → Handle auth errors (A05)
+
+Note: `CsrfFilter` is **not** in the chain — both `SecurityConfig` and `TestSecurityConfig` call `.csrf(AbstractHttpConfigurer::disable)`, which omits the filter entirely rather than adding a no-op.
 
 ---
 
@@ -305,7 +308,7 @@ frontend/                                   # React SPA (Vite + Tailwind)
 │   ├── pages/AdminPage.jsx                 # Authors | Books admin tabs
 │   └── components/authors/ books/         # List + Form components per entity
 
-src/main/java/com/messalas/spring_boot_demo_A/
+src/main/java/com/messalas/omniapi/
 ├── SpringBootDemoAApplication.java         # Entry point
 ├── api/
 │   ├── rest/                               # REST endpoints (@RestController)
@@ -326,10 +329,11 @@ src/main/resources/
 ├── db_scripts/                             # SQL initialization (h2data.sql, sqlitedata.sql)
 └── xsd/                                    # SOAP schema files (auto-gen Java code)
 
-src/test/java/com/messalas/spring_boot_demo_A/
+src/test/java/com/messalas/omniapi/
+├── DatabaseConnectionTest.java             # Profile connectivity checks
 ├── unit/                                   # Unit tests (*Test.java, @WebMvcTest/@MockBean)
-├── integration/                            # Integration tests (*IT.java, @SpringBootTest, real DB)
-└── DatabaseConnectionTest.java             # Profile connectivity checks
+│   └── mappers/                            # MapStruct mapper unit tests
+└── integration/                            # Integration tests (*IT.java, @SpringBootTest, real DB)
 ```
 
 ---
