@@ -1,6 +1,6 @@
 # OmniAPI — Implementation Roadmap
 
-> **Scope note:** this file describes what is **planned/aspirational** — not yet verified as implemented. For the current, verified state of the codebase, see [`AGENTS.md`](../AGENTS.md). When an item here is actually built, move its description there and drop it from this file (or mark ✅ only after confirming against source, not from memory).
+> **Scope note:** this file describes what is **planned/aspirational** — not yet verified as implemented. For the current, verified state of the codebase, see [`AGENTS.md`](AGENTS.md). When an item here is actually built, move its description there and drop it from this file (or mark ✅ only after confirming against source, not from memory).
 
 OmniAPI's real thesis: one domain (books/authors, deliberately boring) exposed through *every* major API paradigm, built correctly enough to serve as the base for future projects. Below is prioritized by how strongly each item signals seniority and how directly it advances that thesis. ✅ = already evidenced in repo. 🔲 = gap to close.
 

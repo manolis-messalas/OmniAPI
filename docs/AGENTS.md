@@ -1,6 +1,6 @@
 # AGENTS.md - OmniAPI Development Guide
 
-> **Scope note:** this file describes what is **already implemented** and verified against the current codebase. For planned/aspirational work (Kubernetes, Kafka, GraphQL, gRPC, WebSockets, etc.), see [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md). Do not add 🔲/planned items here — they belong in the roadmap.
+> **Scope note:** this file describes what is **already implemented** and verified against the current codebase. For planned/aspirational work (Kubernetes, Kafka, GraphQL, gRPC, WebSockets, etc.), see [`docs/implementation-roadmap.md`](implementation-roadmap.md). Do not add 🔲/planned items here — they belong in the roadmap.
 
 ## Project Overview
 
@@ -45,7 +45,7 @@
 
 #### PostgreSQL Data Loading (Docker)
 The `docker-compose.yml` includes:
-1. Health check: `pg_isready -U messalas -d booksdb` (checks container readiness)
+1. Health check: `pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"` (checks container readiness)
 2. Volume mount: `./src/main/resources/db_scripts/postgres:/docker-entrypoint-initdb.d:ro` (for PostgreSQL init scripts)
 3. Java loader: `PostgresDatabaseLoader` executes as `CommandLineRunner` after Hibernate creates tables (Order=3)
 
@@ -246,7 +246,7 @@ frontend/
 ```bash
 docker-compose up -d      # Starts PostgreSQL on port 5432
 docker-compose down       # Stops container
-# Credentials: user=messalas, password=mes123, db=booksdb
+# Credentials: read from .env (gitignored, not documented here)
 ```
 
 ---
@@ -356,8 +356,8 @@ src/test/java/com/messalas/omniapi/
 To troubleshoot or run SQL commands directly against the running Postgres container:
 
 ```bash
-# Connect to psql inside the running container
-docker exec -it omniapi-postgres psql -U messalas -d booksdb
+# Connect to psql inside the running container (reads POSTGRES_USER/POSTGRES_DB from .env)
+docker exec -it omniapi-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
 Once connected, you can run SQL queries:
@@ -383,19 +383,20 @@ SELECT COUNT(*) FROM book;
 
 ```bash
 # Query without entering psql shell
-docker exec omniapi-postgres psql -U messalas -d booksdb -c "SELECT COUNT(*) FROM author;"
+docker exec omniapi-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COUNT(*) FROM author;"
 
 # Dump database schema
-docker exec omniapi-postgres pg_dump -U messalas -d booksdb --schema-only
+docker exec omniapi-postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --schema-only
 
 # Check if Postgres is ready
-docker exec omniapi-postgres pg_isready -U messalas -d booksdb
+docker exec omniapi-postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
 ### Environment Variables
-- **POSTGRES_USER**: `AdministratorBooksDB!59`
-- **POSTGRES_DB**: `booksdb`
-- **POSTGRES_PASSWORD**: `j3Suis@adm1nDB10@`
+Defined in `.env` (gitignored — actual values are never committed; read them locally if needed):
+- **POSTGRES_USER**
+- **POSTGRES_DB**
+- **POSTGRES_PASSWORD**
 - **Host**: `localhost` (from host machine), `test-postgres` (from Docker network in CI)
 - **Port**: `5432`
 
