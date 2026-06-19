@@ -11,21 +11,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("h2")
-public class BookRestIΤ {
+public class BookRestIT {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookRestIΤ.class);
+    private static final Logger logger = LoggerFactory.getLogger(BookRestIT.class);
+
+    @TestConfiguration
+    static class JwtMockMvcConfig {
+        @Bean
+        MockMvcBuilderCustomizer jwtDefaultRequestCustomizer() {
+            return builder -> builder.defaultRequest(get("/").with(jwt()));
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;

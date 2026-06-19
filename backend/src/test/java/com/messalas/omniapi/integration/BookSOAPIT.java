@@ -16,9 +16,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("h2")
-public class BookSOAPIΤ {
+public class BookSOAPIT {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookSOAPIΤ.class);
+    private static final Logger logger = LoggerFactory.getLogger(BookSOAPIT.class);
 
     @LocalServerPort
     private int port;

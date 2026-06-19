@@ -184,16 +184,19 @@ frontend/
 └── src/
     ├── index.css           # Tailwind directives
     ├── main.jsx            # React root, wraps <AuthProvider>
-    ├── App.jsx             # Router: /login → LoginPage, /admin → AdminPage (protected)
+    ├── App.jsx             # Router: /login → LoginPage, /oauth/callback → OAuthCallbackPage, /admin → AdminPage (protected)
+    ├── auth/
+    │   └── pkce.js         # Hand-rolled PKCE helper (code_verifier/code_challenge/state via Web Crypto)
     ├── context/
-    │   └── AuthContext.jsx # Stores base64 credentials in localStorage (key: omniapi_credentials)
+    │   └── AuthContext.jsx # Stores JWT access token in localStorage (key: omniapi_access_token)
     ├── api/
-    │   ├── client.js       # Axios instance, injects Authorization: Basic header on every request
+    │   ├── client.js       # Axios instance, injects Authorization: Bearer header on every request
     │   ├── authorsApi.js   # getAuthors, getAuthor, createAuthor, updateAuthor, deleteAuthor
     │   └── booksApi.js     # getBooks, addBook, addBookAuthor, updateBook, deleteBook
     ├── pages/
-    │   ├── LoginPage.jsx   # Validates credentials against GET /api/rest/authors before storing
-    │   └── AdminPage.jsx   # Authors | Books tabs with Sign Out
+    │   ├── LoginPage.jsx        # Redirects to the backend's /oauth2/authorize with PKCE params
+    │   ├── OAuthCallbackPage.jsx # Exchanges the authorization code for a JWT at /oauth2/token
+    │   └── AdminPage.jsx        # Authors | Books tabs with Sign Out
     └── components/
         ├── authors/
         │   ├── AuthorList.jsx  # Table with inline Edit/Delete; opens AuthorForm panel
@@ -204,11 +207,14 @@ frontend/
 ```
 
 ### Authentication Flow
-- Login page sends `GET /api/rest/authors` with `Authorization: Basic <base64(user:pass)>` to validate credentials.
-- On success, credentials are stored as `btoa(username:password)` in `localStorage`.
-- `client.js` reads `omniapi_credentials` from localStorage and injects the header on every request.
-- Logout clears localStorage and redirects to `/login`.
-- Default credentials: **admin / admin** (configured in `SecurityConfig.java`).
+1. `LoginPage.jsx` renders a username/password form inside the React/Tailwind SPA.
+2. On submit, it POSTs `{username, password}` JSON to `POST http://localhost:9090/api/auth/login` (`AuthController.java`) with `credentials: 'include'`. The backend validates against the `app_user` table via `OmniApiUserDetailsService`, establishes a Spring Security session (sets `JSESSIONID` cookie), and returns `200` or `401 {"error":"Invalid credentials"}`. Invalid credentials show an inline error in the React form — the user never leaves the SPA.
+3. On `200`, `LoginPage.jsx` generates PKCE params (`src/auth/pkce.js`), stores `code_verifier`/`state` in `sessionStorage`, and does `window.location.assign(http://localhost:9090/oauth2/authorize?...)`. Because the `JSESSIONID` cookie is sent with this navigation, Spring sees the already-authenticated session and issues an authorization code immediately — **Spring's `/login` page is never shown**.
+4. The browser is redirected to `http://localhost:5173/oauth/callback?code=...&state=...`.
+5. `OAuthCallbackPage.jsx` validates `state`, exchanges the code at `POST http://localhost:9090/oauth2/token` (grant_type=authorization_code + code_verifier), and stores the JWT via `AuthContext.setTokens(...)`, navigating to `/admin`.
+6. `client.js` reads `omniapi_access_token` from localStorage and injects `Authorization: Bearer <token>` on every `/api/rest/**` request; a `401` response clears storage and redirects to `/login`.
+7. Logout clears localStorage and redirects to `/login`. Re-authentication after token expiry (15 min) is always a fresh round trip — no silent refresh (no refresh tokens are issued for public PKCE clients by Spring Authorization Server).
+- **Credentials**: loaded from the `app_user` table. H2/SQLite profiles seed `admin`/`admin` via `UserDataLoader` on first startup. Postgres uses `OMNIAPI_ADMIN_USERNAME`/`OMNIAPI_ADMIN_PASSWORD` from `.env` (defaults to `admin`/`admin` if unset).
 
 ### Adding a New Frontend Feature
 1. Add the API function in `src/api/authorsApi.js` or `booksApi.js` (mirrors a backend endpoint).
@@ -253,18 +259,23 @@ docker-compose down       # Stops container
 
 ## Security & Authorization
 
-- **Framework**: Spring Security with filter chain (see `docs/Security.md` for OWASP mapping)
-- **Production config**: `SecurityConfig.java` (`@Profile("!test")`) — HTTP Basic auth on `/api/rest/**`, CORS allowed from `http://localhost:5173`, in-memory user `admin/admin`
+- **Framework**: Spring Security with two `SecurityFilterChain` beans outside the test profile (see `docs/Security.md` for OWASP mapping)
+- **`AuthorizationServerConfig.java`** (`security/oauth/`, `@Profile("!test")`, `@Order(1)`) — OmniAPI's self-hosted OAuth2 Authorization Server (`spring-security-oauth2-authorization-server`). Registers one public PKCE client (`omniapi-spa`), an in-memory-generated RSA `JWKSource`/`JwtDecoder`, and `AuthorizationServerSettings`. Matches only `/oauth2/*` and OIDC discovery endpoints.
+- **`OmniApiUserDetailsService.java`** (`security/`) — implements `UserDetailsService`, queries the `app_user` table via `UserRepository`. Replaces the removed `InMemoryUserDetailsManager`.
+- **`AuthController.java`** (`api/auth/`) — `POST /api/auth/login` JSON endpoint used by the React login form. Validates credentials via `AuthenticationManager`, establishes a Spring Security session, returns 200/401. Not under `/api/rest/**` so it requires no JWT.
+- **Production config**: `SecurityConfig.java` (`@Profile("!test")`, `@Order(2)`) — the catch-all chain: `/api/rest/**` requires a valid JWT bearer token (`oauth2ResourceServer().jwt()`), `formLogin()` registers `/login` as a fallback path (not normally reached by the SPA flow), CORS allowed from `http://localhost:5173`
 - **Test Profile**: `TestSecurityConfig` with `@Profile("test")` permits all requests for testing
-- **CSRF**: Disabled in both configs (REST API + SPA clients don't use CSRF cookies)
+- **CSRF**: Disabled in all three configs (REST API + SPA clients don't use CSRF cookies)
 
 ### Key Filters (In Order)
 1. `SecurityContextHolderFilter` → Load authentication
 2. `AuthorizationFilter` → Check permissions (A01 Broken Access Control)
-3. `HeaderWriterFilter` → Add security headers (A03, A05)
-4. `ExceptionTranslationFilter` → Handle auth errors (A05)
+3. `BearerTokenAuthenticationFilter` → Validate JWT on `/api/rest/**` (A07)
+4. `UsernamePasswordAuthenticationFilter` → Process `/login` form submissions for the OAuth2 resource-owner step (A07)
+5. `HeaderWriterFilter` → Add security headers (A03, A05)
+6. `ExceptionTranslationFilter` → Handle auth errors (A05)
 
-Note: `CsrfFilter` is **not** in the chain — both `SecurityConfig` and `TestSecurityConfig` call `.csrf(AbstractHttpConfigurer::disable)`, which omits the filter entirely rather than adding a no-op.
+Note: `CsrfFilter` is **not** in either non-test chain — both `AuthorizationServerConfig` and `SecurityConfig` call `.csrf(AbstractHttpConfigurer::disable)`, which omits the filter entirely rather than adding a no-op.
 
 ### HTTPS / TLS (opt-in)
 
@@ -326,6 +337,9 @@ frontend/                                   # React SPA (Vite + Tailwind)
 src/main/java/com/messalas/omniapi/
 ├── SpringBootDemoAApplication.java         # Entry point
 ├── api/
+│   ├── auth/                               # Auth endpoints (login, not under /api/rest/**)
+│   │   ├── AuthController.java             # POST /api/auth/login → 200/401 JSON
+│   │   └── LoginRequest.java               # Record {username, password}
 │   ├── rest/                               # REST endpoints (@RestController)
 │   └── soap/                               # SOAP endpoints (@Endpoint)
 ├── service/                                # Business logic (@Service)
@@ -336,8 +350,11 @@ src/main/java/com/messalas/omniapi/
 │   ├── mappers/                            # MapStruct @Mapper interfaces
 │   └── builders/                           # Manual builders
 ├── security/                               # Spring Security config
+│   ├── OmniApiUserDetailsService.java      # Implements UserDetailsService → queries app_user table
+│   └── oauth/AuthorizationServerConfig.java # Self-hosted OAuth2 Authorization Server
 ├── exceptions/                             # Custom exceptions + SOAP faults
 └── db/                                     # Database loaders (CommandLineRunner)
+    └── UserDataLoader.java                 # Seeds default admin user if app_user is empty (all profiles)
 
 src/main/resources/
 ├── application*.properties                 # Profile-specific config
@@ -373,6 +390,9 @@ To troubleshoot or run SQL commands directly against the running Postgres contai
 ```bash
 # Connect to psql inside the running container (reads POSTGRES_USER/POSTGRES_DB from .env)
 docker exec -it omniapi-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+
+# Run a query directly
+docker container exec -it omniapi-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c  "SELECT * FROM user";
 ```
 
 Once connected, you can run SQL queries:

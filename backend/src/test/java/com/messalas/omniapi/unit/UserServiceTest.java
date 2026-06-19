@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +25,9 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -49,14 +53,15 @@ class UserServiceTest {
     }
 
     @Test
-    void saveUser_ShouldSaveUserAndReturnId() {
+    void saveUser_ShouldHashPasswordAndSaveUser() {
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$hashedPassword");
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
 
         Long result = userService.saveUser(userDetails);
 
         assertNotNull(result);
         assertEquals(1L, result);
-
+        verify(passwordEncoder, times(1)).encode(userDetails.getPassword());
         verify(userRepository, times(1)).save(any(UserEntity.class));
     }
 

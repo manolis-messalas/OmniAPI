@@ -1,28 +1,60 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import { useAuth } from '../context/AuthContext'
+import { generateCodeVerifier, generateCodeChallenge, generateState } from '../auth/pkce'
+
+const AUTH_ENDPOINT = 'http://localhost:9090/oauth2/authorize'
+const LOGIN_ENDPOINT = 'http://localhost:9090/api/auth/login'
+const CLIENT_ID = 'omniapi-spa'
+const REDIRECT_URI = 'http://localhost:5173/oauth/callback'
+const SCOPE = 'openid api.read api.write'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     try {
-      await axios.get('/api/rest/authors', {
-        headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
+      const response = await fetch(LOGIN_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
       })
-      login(username, password)
-      navigate('/admin')
+
+      if (!response.ok) {
+        setError('Invalid username or password')
+        return
+      }
+
+      // Credentials verified — now start the OAuth2 Authorization Code + PKCE flow.
+      // The session cookie (JSESSIONID) set by the login response above will be sent
+      // when the browser navigates to /oauth2/authorize, so Spring sees the authenticated
+      // principal and issues the code without redirecting to /login again.
+      const verifier = generateCodeVerifier()
+      const challenge = await generateCodeChallenge(verifier)
+      const state = generateState()
+
+      sessionStorage.setItem('oauth_code_verifier', verifier)
+      sessionStorage.setItem('oauth_state', state)
+
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        scope: SCOPE,
+        state,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      })
+
+      window.location.assign(`${AUTH_ENDPOINT}?${params.toString()}`)
     } catch {
-      setError('Invalid username or password')
+      setError('Unable to connect to server')
     } finally {
       setLoading(false)
     }
