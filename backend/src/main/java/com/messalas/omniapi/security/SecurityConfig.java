@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,26 +27,42 @@ import java.util.List;
 @Profile("!test")
 public class SecurityConfig {
 
+    // Chain 2: Resource Server — /api/rest/** only, STATELESS.
+    // SessionCreationPolicy.STATELESS means Spring Security never creates or reads a session
+    // for these paths, so a JSESSIONID from the OAuth2 login flow cannot be used here.
+    // Bearer JWT is the only accepted credential.
     @Bean
     @Order(2)
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain resourceServerFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/api/rest/**")
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+            .headers(headers -> headers.httpStrictTransportSecurity(hsts -> hsts
+                .includeSubDomains(true)
+                .maxAgeInSeconds(31536000)
+            ));
+        return http.build();
+    }
+
+    // Chain 3: catch-all — serves /login via formLogin() for the OAuth2 resource-owner step,
+    // and permits everything else (SOAP, actuator, h2-console, /api/auth/login).
+    // HTTP -> HTTPS redirection happens at the servlet container level via HttpToHttpsRedirectConfig.
+    @Bean
+    @Order(3)
+    public SecurityFilterChain defaultFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/rest/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .formLogin(Customizer.withDefaults())
             .headers(headers -> headers.httpStrictTransportSecurity(hsts -> hsts
                 .includeSubDomains(true)
                 .maxAgeInSeconds(31536000)
             ));
-        // HTTP -> HTTPS redirection (when TLS is enabled) happens at the servlet container
-        // level via a SecurityConstraint + Connector.redirectPort, see HttpToHttpsRedirectConfig.
-        // /login (served here via formLogin) is where the resource owner authenticates when
-        // /oauth2/authorize redirects an unauthenticated browser - see AuthorizationServerConfig.
         return http.build();
     }
 
