@@ -72,19 +72,10 @@ flowchart TD
 ```
 ```mermaid
 flowchart LR
-    A1[A01 Broken Access Control] --> F1[AuthorizationFilter
-                                        SecurityContextHolderFilter
-                                        ExceptionTranslationFilter
-                                        AnonymousAuthenticationFilter]
-    A5[A05 Security Misconfiguration] --> F5[HeaderWriterFilter
-                                              ExceptionTranslationFilter]
-    A4[A04 Insecure Design] --> F4[RateLimitFilter
-                                       (servlet filter, order -101, before Spring Security)]
-    A7[A07 Identification and Authentication Failures] --> F7[BearerTokenAuthenticationFilter
-                                        UsernamePasswordAuthenticationFilter
-                                        OAuth2AuthorizationEndpointFilter
-                                        OAuth2TokenEndpointFilter
-                                        RateLimitFilter (login brute-force)]
+    A1["A01 Broken Access Control"] --> F1["AuthorizationFilter\nSecurityContextHolderFilter\nExceptionTranslationFilter\nAnonymousAuthenticationFilter"]
+    A5["A05 Security Misconfiguration"] --> F5["HeaderWriterFilter\nExceptionTranslationFilter"]
+    A4["A04 Insecure Design"] --> F4["RateLimitFilter\n(servlet filter, order -101, before Spring Security)"]
+    A7["A07 Identification and Authentication Failures"] --> F7["BearerTokenAuthenticationFilter\nUsernamePasswordAuthenticationFilter\nOAuth2AuthorizationEndpointFilter\nOAuth2TokenEndpointFilter\nRateLimitFilter (login brute-force)"]
 ```
 > Note: `CsrfFilter` is intentionally absent from all three chains — all call `.csrf(AbstractHttpConfigurer::disable)`. `UsernamePasswordAuthenticationFilter` and `DefaultLoginPageGeneratingFilter` are present only on chain 3 (catch-all, via `formLogin()`), not on the Resource Server chain — this isolation is intentional: a `JSESSIONID` session cookie cannot authenticate against `/api/rest/**`. The previous design flaw (both `formLogin` and `oauth2ResourceServer` on the same chain, creating a CSRF-exposed session bypass path into the API) has been resolved by the three-chain split.
 
