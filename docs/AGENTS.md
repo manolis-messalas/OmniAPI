@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-**OmniAPI** is a Spring Boot 3.5.8 multi-protocol backend serving Books and Authors data through REST and SOAP. Java 23 is required.
+**OmniAPI** is a **monorepo** with a **layered-monolith** Spring Boot 3.5.8 backend serving Books and Authors data through REST and SOAP, and a React 18 SPA in `frontend/`. The backend is organized by technical layer (`api → service → repository`) rather than by domain module. Java 23 is required.
 
 ### Core Stack
 - **Framework**: Spring Boot 3.5.8 + Spring Security + Spring Data JPA

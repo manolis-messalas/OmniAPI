@@ -2,7 +2,7 @@
 
 > **Template repository** — OmniAPI is designed to be used as a GitHub template. Click **Use this template** to bootstrap a new project with the full stack (Spring Boot + React + OAuth2 + multi-database support) already wired up. Swap out the Books/Authors domain for your own, and extend from there.
 
-A Spring Boot 3.5.8 multi-protocol backend exposing a Books/Authors domain through **REST** and **SOAP**, fronted by a React 18 SPA. The project's thesis: one service layer, every major API paradigm — REST and SOAP today, with GraphQL, gRPC, and WebSockets on the [roadmap](docs/implementation-roadmap.md).
+A **monorepo** containing a **layered-monolith** Spring Boot 3.5.8 backend and a React 18 SPA. The backend is organized by technical layer (`api → service → repository`) rather than by domain module. The project's thesis: one service layer, every major API paradigm — REST and SOAP today, with GraphQL, gRPC, and WebSockets on the [roadmap](docs/implementation-roadmap.md).
 
 ---
 

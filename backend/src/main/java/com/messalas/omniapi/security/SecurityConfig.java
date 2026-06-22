@@ -1,5 +1,7 @@
 package com.messalas.omniapi.security;
 
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -67,6 +69,16 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilter() {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new RateLimitFilter());
+        registration.addUrlPatterns("/*");
+        // Run before Spring Security's DelegatingFilterProxy (order DEFAULT_FILTER_ORDER = -100)
+        registration.setOrder(SecurityProperties.DEFAULT_FILTER_ORDER - 1);
+        return registration;
     }
 
 }

@@ -15,6 +15,7 @@ A01 Broken Access Control · A02 Cryptographic Failures · A03 Injection · A04 
 
 - **CORS lockdown** — only `http://localhost:5173` is allowed as an origin, explicit method/header allow-list. *(A05)*
 - **Default security headers** — `HeaderWriterFilter` is active (not disabled), so Spring's baseline response headers (e.g. `X-Content-Type-Options`, `X-Frame-Options`) are applied. *(A05)*
+- **Rate limiting** — `RateLimitFilter` (`security/RateLimitFilter.java`, registered via `FilterRegistrationBean` in `SecurityConfig`, `@Profile("!test")`) runs before Spring Security (servlet filter order -101). Uses Bucket4j 8.10.1 token-bucket algorithm with in-memory per-IP buckets (`ConcurrentHashMap`). Two limits: `POST /api/auth/login` → 5 requests/minute/IP; write operations (POST/PUT/DELETE/PATCH) on `/api/rest/**` → 20 requests/minute/IP. Blocked requests receive HTTP 429 with `Retry-After` and `{"error":"Too many requests"}`. Read (`GET`) requests are not throttled. `X-Forwarded-For` is used for IP resolution when present (first hop), falling back to `RemoteAddr`. Note: the in-memory map grows with unique IPs — acceptable for the current single-instance scope; a distributed cache (Redis + Bucket4j's proxy) would be the upgrade path for multi-instance deployments. *(A04, A07)*
 - **No SSRF surface** — neither the REST nor SOAP controllers make outbound HTTP calls; there is no attacker-controllable URL/host/path for the server to call. *(A10)*
 - **Test isolation** — `TestSecurityConfig` (`@Profile("test")`) permits all requests, keeping security concerns out of unrelated unit/integration tests.
 - **HTTPS / TLS (opt-in)** — `server.ssl.enabled=${SSL_ENABLED:false}` in `application.properties`, backed by a self-signed PKCS12 keystore (`backend/keystore/`, gitignored, password in `.env`). Off by default so local dev/CI keep using plain HTTP unchanged. When enabled: `HttpToHttpsRedirectConfig` adds a second Tomcat connector on `server.http.port` (8080) with a `SecurityConstraint` requiring confidential transport, so Tomcat itself redirects HTTP → HTTPS (the modern replacement for Spring Security's deprecated `requiresChannel()`); `SecurityConfig` explicitly configures HSTS (`includeSubDomains`, 1-year max-age) via `.headers(...)`. Verified: HTTPS responds 200 with `Strict-Transport-Security` header, plain HTTP on 8080 returns a 302 to the HTTPS URL, OAuth2 session cookie's `Secure` flag works correctly over TLS. *(A02)*
@@ -42,10 +43,13 @@ flowchart LR
                                         AnonymousAuthenticationFilter]
     A5[A05 Security Misconfiguration] --> F5[HeaderWriterFilter
                                               ExceptionTranslationFilter]
+    A4[A04 Insecure Design] --> F4[RateLimitFilter
+                                       (servlet filter, order -101, before Spring Security)]
     A7[A07 Identification and Authentication Failures] --> F7[BearerTokenAuthenticationFilter
                                         UsernamePasswordAuthenticationFilter
                                         OAuth2AuthorizationEndpointFilter
-                                        OAuth2TokenEndpointFilter]
+                                        OAuth2TokenEndpointFilter
+                                        RateLimitFilter (login brute-force)]
 ```
 > Note: `CsrfFilter` is intentionally absent from both chains — `AuthorizationServerConfig` and `SecurityConfig` both call `.csrf(AbstractHttpConfigurer::disable)`, which omits the filter rather than adding a no-op. `UsernamePasswordAuthenticationFilter` and the `DefaultLoginPageGeneratingFilter` are now legitimately present on the `SecurityConfig` chain (`formLogin()`) — this corrects an earlier version of this doc that described them as absent, which was true before the OAuth2 work landed but is no longer accurate. A consequence worth flagging: a browser holding a valid Spring Security session cookie (from visiting `/login` directly) can also reach `/api/rest/**` without a bearer token, since both authentication mechanisms are active on the same chain — an acceptable overlap for this project's scope, not engineered around with a third chain.
 
@@ -58,7 +62,7 @@ flowchart LR
 
 ### 1c. Cybersecurity
 
-- **OWASP Top 10 as risk framework** — used to categorize and prioritize security work across this document, giving a consistent reference vocabulary instead of ad-hoc judgment calls. Risks currently mitigated: A01 (URL-based access rule), A02 (password hashing, opt-in TLS, no hardcoded credentials), A05 (CORS + default headers), A07 (OAuth2 + JWT + DB-backed auth), A08 (CI-only artifact builds), A10 (no outbound calls).
+- **OWASP Top 10 as risk framework** — used to categorize and prioritize security work across this document, giving a consistent reference vocabulary instead of ad-hoc judgment calls. Risks currently mitigated: A01 (URL-based access rule), A02 (password hashing, opt-in TLS, no hardcoded credentials), A04 (rate limiting on write endpoints), A05 (CORS + default headers), A07 (OAuth2 + JWT + DB-backed auth + login rate limiting), A08 (CI-only artifact builds), A10 (no outbound calls).
 
 > Most organizational/operational cybersecurity practices (SOC, incident response, compliance audits, threat intelligence) don't apply to a single-developer portfolio project — there's no organization to operate. The closest applicable practices are covered under 1a/1b above and their planned counterparts in 2c.
 
@@ -68,7 +72,6 @@ flowchart LR
 
 ### 2a. Application Security
 
-- **Rate limiting** — no throttling on auth or write endpoints. *(A04, A07)*
 - **Centralized exception handling** — already tracked in `implementation-roadmap.md`; upgrading the `exceptions` package to `@RestControllerAdvice`/`ProblemDetail` also reduces accidental stack-trace leakage. *(A05)*
 
 #### Authentication
