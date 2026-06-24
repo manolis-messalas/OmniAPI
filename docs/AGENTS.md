@@ -264,7 +264,7 @@ docker-compose down       # Stops container
 - **`OmniApiUserDetailsService.java`** (`security/`) — implements `UserDetailsService`, queries the `app_user` table via `UserRepository`. Replaces the removed `InMemoryUserDetailsManager`.
 - **`AuthController.java`** (`api/auth/`) — `POST /api/auth/login` JSON endpoint used by the React login form. Validates credentials via `AuthenticationManager`, establishes a Spring Security session, returns 200/401. Not under `/api/rest/**` so it requires no JWT.
 - **`SecurityConfig.java`** (`@Profile("!test")`):
-  - `@Order(2)` `resourceServerFilterChain` — matches `/api/rest/**` only, `SessionCreationPolicy.STATELESS` (no session created or read), bearer JWT required (`oauth2ResourceServer().jwt()`). JSESSIONID cannot authenticate here.
+  - `@Order(2)` `resourceServerFilterChain` — matches `/api/rest/**` and `/api/ws/**`, `SessionCreationPolicy.STATELESS` (no session created or read), bearer JWT required (`oauth2ResourceServer().jwt()`). JSESSIONID cannot authenticate here.
   - `@Order(3)` `defaultFilterChain` — catch-all `/**`, `formLogin()` serves `/login` for the OAuth2 resource-owner step, `anyRequest().permitAll()` for SOAP, actuator, `/api/auth/login`, etc.
 - **Test Profile**: `TestSecurityConfig` with `@Profile("test")` permits all requests for testing
 - **CSRF**: Disabled on all three chains (REST API + SPA clients don't use CSRF cookies)
@@ -277,7 +277,7 @@ docker-compose down       # Stops container
 5. `HeaderWriterFilter` → Add security headers (A03, A05)
 6. `ExceptionTranslationFilter` → Handle auth errors (A05)
 
-Note: `CsrfFilter` is **not** in any non-test chain — all three call `.csrf(AbstractHttpConfigurer::disable)`. `UsernamePasswordAuthenticationFilter` is present only on chain 3, not on the Resource Server chain — a JSESSIONID cannot authenticate against `/api/rest/**`.
+Note: `CsrfFilter` is **not** in any non-test chain — all three call `.csrf(AbstractHttpConfigurer::disable)`. `UsernamePasswordAuthenticationFilter` is present only on chain 3, not on the Resource Server chain — a JSESSIONID cannot authenticate against `/api/rest/**` or `/api/ws/**`.
 
 ### HTTPS / TLS (opt-in)
 

@@ -114,10 +114,9 @@ public class OAuth2AuthorizationCodeFlowIT {
                 HttpResponse.BodyHandlers.ofString());
         assertEquals(200, apiResponse.statusCode(), "valid bearer token should be accepted by the resource server");
 
-        // Use a fresh, cookie-less client here: the shared httpClient still carries the
-        // JSESSIONID established during the /login step above, and a valid Spring Security
-        // session is also accepted on this chain (see SecurityConfig's formLogin() note) -
-        // that's expected chain-overlap behavior, not what this assertion is checking.
+        // Use a fresh, cookie-less client: the shared httpClient still carries the JSESSIONID
+        // from the /login step, but chain 2 (STATELESS) would ignore it anyway. The separate
+        // client makes the intent explicit — this assertion is about "no bearer token at all".
         HttpClient noSessionClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
         HttpResponse<String> unauthenticatedApiResponse = noSessionClient.send(
                 HttpRequest.newBuilder(URI.create(baseUrl + "/api/rest/authors")).GET().build(),

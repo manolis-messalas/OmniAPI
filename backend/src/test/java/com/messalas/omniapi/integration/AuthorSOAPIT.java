@@ -2,8 +2,10 @@ package com.messalas.omniapi.integration;
 
 import bookshelf.generated.*;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,12 +13,15 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.ws.client.core.WebServiceTemplate;
+import org.springframework.ws.transport.context.TransportContextHolder;
+import org.springframework.ws.transport.http.HttpUrlConnection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("h2")
-public class AuthorSOAPIT {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class AuthorSOAPIT extends OAuth2TestSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthorSOAPIT.class);
 
@@ -24,8 +29,14 @@ public class AuthorSOAPIT {
     private int port;
 
     private WebServiceTemplate webServiceTemplate;
+    private String accessToken;
 
     private final boolean testPassed = true;
+
+    @BeforeAll
+    public void acquireToken() throws Exception {
+        accessToken = acquireAccessToken("http://localhost:" + port);
+    }
 
     @BeforeEach
     public void setup() {
@@ -49,12 +60,19 @@ public class AuthorSOAPIT {
         }
     }
 
+    private Object sendWithAuth(Object request) {
+        return webServiceTemplate.marshalSendAndReceive(request, message -> {
+            HttpUrlConnection conn = (HttpUrlConnection) TransportContextHolder.getTransportContext().getConnection();
+            conn.addRequestHeader("Authorization", "Bearer " + accessToken);
+        });
+    }
+
     @Test
     public void testGetAllAuthors() {
         logger.info("Starting testGetAllAuthors");
 
         GetAuthorsRequest request = new GetAuthorsRequest();
-        GetAuthorsResponse response = (GetAuthorsResponse) webServiceTemplate.marshalSendAndReceive(request);
+        GetAuthorsResponse response = (GetAuthorsResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertNotNull(response.getAuthors());
@@ -70,7 +88,7 @@ public class AuthorSOAPIT {
         GetAuthorRequest request = new GetAuthorRequest();
         request.setId(1L);
 
-        GetAuthorResponse response = (GetAuthorResponse) webServiceTemplate.marshalSendAndReceive(request);
+        GetAuthorResponse response = (GetAuthorResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertNotNull(response.getAuthor());
@@ -91,7 +109,7 @@ public class AuthorSOAPIT {
         CreateAuthorRequest request = new CreateAuthorRequest();
         request.setAuthor(author);
 
-        CreateAuthorResponse response = (CreateAuthorResponse) webServiceTemplate.marshalSendAndReceive(request);
+        CreateAuthorResponse response = (CreateAuthorResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertNotNull(response.getAuthorId());
@@ -111,11 +129,11 @@ public class AuthorSOAPIT {
 
         CreateAuthorRequest createRequest = new CreateAuthorRequest();
         createRequest.setAuthor(author);
-        CreateAuthorResponse createResponse = (CreateAuthorResponse) webServiceTemplate.marshalSendAndReceive(createRequest);
+        CreateAuthorResponse createResponse = (CreateAuthorResponse) sendWithAuth(createRequest);
 
         DeleteAuthorRequest deleteRequest = new DeleteAuthorRequest();
         deleteRequest.setAuthorId(createResponse.getAuthorId());
-        DeleteAuthorResponse deleteResponse = (DeleteAuthorResponse) webServiceTemplate.marshalSendAndReceive(deleteRequest);
+        DeleteAuthorResponse deleteResponse = (DeleteAuthorResponse) sendWithAuth(deleteRequest);
 
         assertTrue(deleteResponse.isStatus());
 

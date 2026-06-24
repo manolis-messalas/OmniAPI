@@ -2,8 +2,10 @@ package com.messalas.omniapi.integration;
 
 import bookshelf.generated.*;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,12 +13,15 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.ws.client.core.WebServiceTemplate;
+import org.springframework.ws.transport.context.TransportContextHolder;
+import org.springframework.ws.transport.http.HttpUrlConnection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("h2")
-public class BookSOAPIT {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class BookSOAPIT extends OAuth2TestSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(BookSOAPIT.class);
 
@@ -24,8 +29,14 @@ public class BookSOAPIT {
     private int port;
 
     private WebServiceTemplate webServiceTemplate;
+    private String accessToken;
 
     private final boolean testPassed = true;
+
+    @BeforeAll
+    public void acquireToken() throws Exception {
+        accessToken = acquireAccessToken("http://localhost:" + port);
+    }
 
     @BeforeEach
     public void setup() {
@@ -49,12 +60,19 @@ public class BookSOAPIT {
         }
     }
 
+    private Object sendWithAuth(Object request) {
+        return webServiceTemplate.marshalSendAndReceive(request, message -> {
+            HttpUrlConnection conn = (HttpUrlConnection) TransportContextHolder.getTransportContext().getConnection();
+            conn.addRequestHeader("Authorization", "Bearer " + accessToken);
+        });
+    }
+
     @Test
     public void testGetAllBooks() {
         logger.info("Starting testGetAllBooks");
 
         GetBooksRequest request = new GetBooksRequest();
-        GetBooksResponse response = (GetBooksResponse) webServiceTemplate.marshalSendAndReceive(request);
+        GetBooksResponse response = (GetBooksResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertNotNull(response.getBooks());
@@ -77,7 +95,7 @@ public class BookSOAPIT {
         CreateBookAuthorRequest request = new CreateBookAuthorRequest();
         request.setBookAuthorDTO(bookAuthorDTO);
 
-        CreateBookAuthorResponse response = (CreateBookAuthorResponse) webServiceTemplate.marshalSendAndReceive(request);
+        CreateBookAuthorResponse response = (CreateBookAuthorResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertTrue(response.isSuccess());
@@ -96,7 +114,7 @@ public class BookSOAPIT {
 
         CreateAuthorRequest createAuthorRequest = new CreateAuthorRequest();
         createAuthorRequest.setAuthor(author);
-        webServiceTemplate.marshalSendAndReceive(createAuthorRequest);
+        sendWithAuth(createAuthorRequest);
 
         Book book = new Book();
         book.setName("SOAP Book Only Test");
@@ -106,7 +124,7 @@ public class BookSOAPIT {
         CreateBookRequest request = new CreateBookRequest();
         request.setBook(book);
 
-        CreateBookResponse response = (CreateBookResponse) webServiceTemplate.marshalSendAndReceive(request);
+        CreateBookResponse response = (CreateBookResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertNotNull(response.getBookId());
@@ -128,10 +146,10 @@ public class BookSOAPIT {
 
         CreateBookAuthorRequest createRequest = new CreateBookAuthorRequest();
         createRequest.setBookAuthorDTO(bookAuthorDTO);
-        webServiceTemplate.marshalSendAndReceive(createRequest);
+        sendWithAuth(createRequest);
 
         GetBooksRequest getBooksRequest = new GetBooksRequest();
-        GetBooksResponse booksResponse = (GetBooksResponse) webServiceTemplate.marshalSendAndReceive(getBooksRequest);
+        GetBooksResponse booksResponse = (GetBooksResponse) sendWithAuth(getBooksRequest);
 
         Long bookIdToDelete = null;
         for (Book book : booksResponse.getBooks()) {
@@ -145,7 +163,7 @@ public class BookSOAPIT {
 
         DeleteBookRequest deleteRequest = new DeleteBookRequest();
         deleteRequest.setBookId(bookIdToDelete);
-        DeleteBookResponse deleteResponse = (DeleteBookResponse) webServiceTemplate.marshalSendAndReceive(deleteRequest);
+        DeleteBookResponse deleteResponse = (DeleteBookResponse) sendWithAuth(deleteRequest);
 
         assertTrue(deleteResponse.isStatus());
 
@@ -159,7 +177,7 @@ public class BookSOAPIT {
         DeleteBookRequest request = new DeleteBookRequest();
         request.setBookId(999L);
 
-        DeleteBookResponse response = (DeleteBookResponse) webServiceTemplate.marshalSendAndReceive(request);
+        DeleteBookResponse response = (DeleteBookResponse) sendWithAuth(request);
 
         assertNotNull(response);
         assertFalse(response.isStatus());

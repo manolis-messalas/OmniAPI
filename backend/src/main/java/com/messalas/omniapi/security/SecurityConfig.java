@@ -35,7 +35,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain resourceServerFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/rest/**")
+            .securityMatcher("/api/rest/**", "/api/ws/**")
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

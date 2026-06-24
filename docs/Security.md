@@ -29,7 +29,7 @@ A01 Broken Access Control · A02 Cryptographic Failures · A03 Injection · A04 
 
 #### Authorization
 
-- **URL-based access rule** — `/api/rest/**` requires authentication; all other requests permitted. Enforced via `AuthorizationFilter`. *(A01)*
+- **URL-based access rule** — `/api/rest/**` and `/api/ws/**` require authentication; all other requests permitted. Enforced via `AuthorizationFilter`. *(A01)*
 
 **Active filter chains (verified against `AuthorizationServerConfig`/`SecurityConfig`/`TestSecurityConfig`, not the Spring Security default set):** there are now three `SecurityFilterChain` beans outside the test profile — `@Order(1)` in `AuthorizationServerConfig` matches only the Authorization Server's own endpoints (`/oauth2/*`, OIDC discovery); `@Order(2)` in `SecurityConfig` matches `/api/rest/**` exclusively as a `STATELESS` Resource Server (bearer JWT only, session never created or consulted); `@Order(3)` in `SecurityConfig` is the catch-all that serves `/login` via `formLogin()` and permits everything else.
 ```mermaid
@@ -46,7 +46,7 @@ flowchart TD
         subgraph C1["SecurityFilterChain @Order(1) — AuthorizationServerConfig\n/oauth2/** · /.well-known/**"]
             O1["OAuth2AuthorizationEndpointFilter"] --> O2["OAuth2TokenEndpointFilter"] --> O3["OidcProviderConfigurationEndpointFilter"]
         end
-        subgraph C2["SecurityFilterChain @Order(2) — SecurityConfig\n/api/rest/** · STATELESS"]
+        subgraph C2["SecurityFilterChain @Order(2) — SecurityConfig\n/api/rest/** · /api/ws/** · STATELESS"]
             S1["CorsFilter"] --> S2["HeaderWriterFilter\n(HSTS · X-Frame-Options · X-Content-Type-Options)"] --> S3["BearerTokenAuthenticationFilter\n(JWT on Authorization: Bearer)"] --> S5["AnonymousAuthenticationFilter"] --> S6["AuthorizationFilter\n(anyRequest → authenticated)"]
         end
         subgraph C3["SecurityFilterChain @Order(3) — SecurityConfig\n/** catch-all"]
@@ -63,7 +63,7 @@ flowchart TD
     RLF -.->|"HTTP 429 + Retry-After"| Client
     RLF --> DFP
     DFP -->|"oauth2 / OIDC endpoints"| C1
-    DFP -->|"/api/rest/**"| C2
+    DFP -->|"/api/rest/** · /api/ws/**"| C2
     DFP -->|"all other requests"| C3
     C1 --> DS
     C2 --> DS
