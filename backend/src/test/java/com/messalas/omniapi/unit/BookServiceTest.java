@@ -1,5 +1,6 @@
 package com.messalas.omniapi.unit;
 
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.builders.BookAuthorDTOBuilder;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -275,5 +277,129 @@ public class BookServiceTest {
         verify(bookRepository, never()).deleteById(any());
 
         logger.info("testDeleteBook_NotFound completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateBook_Success() {
+        Long bookId = 1L;
+        AuthorEntity author = new AuthorEntity();
+        author.setId(1L);
+        author.setName("Test Author");
+
+        BookEntity existingBook = new BookEntity();
+        existingBook.setId(bookId);
+        existingBook.setVersion(0L);
+        existingBook.setName("Old Name");
+        existingBook.setPublicationYear("2020");
+        existingBook.setAuthorEntity(author);
+
+        BookEntity savedBook = new BookEntity();
+        savedBook.setId(bookId);
+        savedBook.setVersion(1L);
+        savedBook.setName("New Name");
+        savedBook.setPublicationYear("2024");
+        savedBook.setAuthorEntity(author);
+
+        AuthorDTO authorDTO = AuthorDTO.builder().authorName("Test Author").build();
+        BookDTO bookDTO = BookDTO.builder()
+                .version(0L)
+                .bookName("New Name")
+                .publicationYear("2024")
+                .authorDTO(authorDTO)
+                .build();
+
+        logger.info("Starting testUpdateBook_Success");
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(authorRepository.findByName("Test Author")).thenReturn(Optional.of(author));
+        when(bookRepository.saveAndFlush(any(BookEntity.class))).thenReturn(savedBook);
+
+        BookDTO result = bookService.updateBook(bookId, bookDTO);
+
+        assertNotNull(result);
+        assertEquals("New Name", result.getBookName());
+        assertEquals(1L, result.getVersion());
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository).saveAndFlush(any(BookEntity.class));
+
+        logger.info("testUpdateBook_Success completed successfully");
+    }
+
+    @Test
+    public void testUpdateBook_NoVersion() {
+        BookDTO bookDTO = BookDTO.builder()
+                .bookName("New Name")
+                .publicationYear("2024")
+                .build();
+
+        logger.info("Starting testUpdateBook_NoVersion");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> bookService.updateBook(1L, bookDTO)
+        );
+
+        assertEquals("version is required for update", exception.getMessage());
+        verify(bookRepository, never()).findById(any());
+
+        logger.info("testUpdateBook_NoVersion completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateBook_NotFound() {
+        Long bookId = 999L;
+        BookDTO bookDTO = BookDTO.builder()
+                .version(0L)
+                .bookName("New Name")
+                .publicationYear("2024")
+                .build();
+
+        logger.info("Starting testUpdateBook_NotFound");
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> bookService.updateBook(bookId, bookDTO)
+        );
+
+        assertEquals("Book not found with ID: 999", exception.getMessage());
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository, never()).saveAndFlush(any());
+
+        logger.info("testUpdateBook_NotFound completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateBook_OptimisticLockConflict() {
+        Long bookId = 1L;
+        BookEntity existingBook = new BookEntity();
+        existingBook.setId(bookId);
+        existingBook.setVersion(2L);
+        existingBook.setName("Book");
+        existingBook.setPublicationYear("2024");
+
+        BookDTO bookDTO = BookDTO.builder()
+                .version(1L)
+                .bookName("Book")
+                .publicationYear("2024")
+                .build();
+
+        logger.info("Starting testUpdateBook_OptimisticLockConflict");
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.saveAndFlush(any(BookEntity.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(BookEntity.class, bookId));
+
+        OptimisticLockConflictException exception = assertThrows(
+                OptimisticLockConflictException.class,
+                () -> bookService.updateBook(bookId, bookDTO)
+        );
+
+        assertTrue(exception.getMessage().contains("Book with ID 1"));
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository).saveAndFlush(any(BookEntity.class));
+
+        logger.info("testUpdateBook_OptimisticLockConflict completed successfully, exception thrown as expected");
     }
 }

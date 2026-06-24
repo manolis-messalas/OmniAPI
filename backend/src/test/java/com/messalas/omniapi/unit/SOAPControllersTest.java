@@ -7,6 +7,7 @@ import com.messalas.omniapi.exceptions.AuthorServiceException;
 import com.messalas.omniapi.exceptions.AuthorValidationException;
 import com.messalas.omniapi.exceptions.BookServiceException;
 import com.messalas.omniapi.exceptions.BookValidationException;
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
 import com.messalas.omniapi.model.dto.BookDTO;
@@ -27,6 +28,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -636,6 +638,243 @@ public class SOAPControllersTest {
         assertEquals("Test Author", result.getAuthorName());
 
         logger.info("testMapBookDTOToRequestDTO completed successfully");
+    }
+
+    @Test
+    public void testUpdateBook_Success() {
+        Book soapBook = new Book();
+        soapBook.setId(1L);
+        soapBook.setVersion(0L);
+        soapBook.setName("Updated Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Test Author");
+
+        UpdateBookRequest request = new UpdateBookRequest();
+        request.setBook(soapBook);
+
+        AuthorDTO authorDTO = AuthorDTO.builder().authorId(1L).authorName("Test Author").build();
+        BookDTO updatedBook = BookDTO.builder()
+                .id(1L)
+                .version(1L)
+                .bookName("Updated Book")
+                .publicationYear("2024")
+                .authorDTO(authorDTO)
+                .build();
+
+        logger.info("Starting testUpdateBook_Success");
+
+        when(bookService.updateBook(eq(1L), any(BookDTO.class))).thenReturn(updatedBook);
+
+        UpdateBookResponse response = bookSOAPController.updateBook(request);
+
+        assertNotNull(response);
+        assertNotNull(response.getBook());
+        assertEquals("Updated Book", response.getBook().getName());
+        assertEquals(1L, response.getBook().getVersion());
+        verify(bookService).updateBook(eq(1L), any(BookDTO.class));
+
+        logger.info("testUpdateBook_Success completed successfully");
+    }
+
+    @Test
+    public void testUpdateBook_OptimisticLockConflict() {
+        Book soapBook = new Book();
+        soapBook.setId(1L);
+        soapBook.setVersion(0L);
+        soapBook.setName("Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Test Author");
+
+        UpdateBookRequest request = new UpdateBookRequest();
+        request.setBook(soapBook);
+
+        logger.info("Starting testUpdateBook_OptimisticLockConflict");
+
+        when(bookService.updateBook(eq(1L), any(BookDTO.class)))
+                .thenThrow(new OptimisticLockConflictException("Book with ID 1 was modified by another transaction."));
+
+        assertThrows(
+                OptimisticLockConflictException.class,
+                () -> bookSOAPController.updateBook(request)
+        );
+
+        verify(bookService).updateBook(eq(1L), any(BookDTO.class));
+
+        logger.info("testUpdateBook_OptimisticLockConflict completed successfully");
+    }
+
+    @Test
+    public void testUpdateBook_ValidationError() {
+        Book soapBook = new Book();
+        soapBook.setId(1L);
+        soapBook.setVersion(0L);
+        soapBook.setName("Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Unknown Author");
+
+        UpdateBookRequest request = new UpdateBookRequest();
+        request.setBook(soapBook);
+
+        logger.info("Starting testUpdateBook_ValidationError");
+
+        when(bookService.updateBook(eq(1L), any(BookDTO.class)))
+                .thenThrow(new IllegalArgumentException("Author not found"));
+
+        BookValidationException exception = assertThrows(
+                BookValidationException.class,
+                () -> bookSOAPController.updateBook(request)
+        );
+
+        assertEquals("Validation failed: Author not found", exception.getMessage());
+        verify(bookService).updateBook(eq(1L), any(BookDTO.class));
+
+        logger.info("testUpdateBook_ValidationError completed successfully");
+    }
+
+    @Test
+    public void testUpdateBook_ServiceError() {
+        Book soapBook = new Book();
+        soapBook.setId(1L);
+        soapBook.setVersion(0L);
+        soapBook.setName("Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Test Author");
+
+        UpdateBookRequest request = new UpdateBookRequest();
+        request.setBook(soapBook);
+
+        logger.info("Starting testUpdateBook_ServiceError");
+
+        when(bookService.updateBook(eq(1L), any(BookDTO.class)))
+                .thenThrow(new RuntimeException("Database error"));
+
+        BookServiceException exception = assertThrows(
+                BookServiceException.class,
+                () -> bookSOAPController.updateBook(request)
+        );
+
+        assertEquals("Internal server error", exception.getMessage());
+        verify(bookService).updateBook(eq(1L), any(BookDTO.class));
+
+        logger.info("testUpdateBook_ServiceError completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor_Success() {
+        Author soapAuthor = new Author();
+        soapAuthor.setId(1L);
+        soapAuthor.setVersion(0L);
+        soapAuthor.setName("Updated Author");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("UK");
+
+        UpdateAuthorRequest request = new UpdateAuthorRequest();
+        request.setAuthor(soapAuthor);
+
+        AuthorDTO updatedAuthor = AuthorDTO.builder()
+                .authorId(1L)
+                .version(1L)
+                .authorName("Updated Author")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+
+        logger.info("Starting testUpdateAuthor_Success");
+
+        when(authorService.updateAuthor(eq(1L), any(AuthorDTO.class))).thenReturn(updatedAuthor);
+
+        UpdateAuthorResponse response = authorSOAPController.updateAuthor(request);
+
+        assertNotNull(response);
+        assertNotNull(response.getAuthor());
+        assertEquals("Updated Author", response.getAuthor().getName());
+        assertEquals(1L, response.getAuthor().getVersion());
+        verify(authorService).updateAuthor(eq(1L), any(AuthorDTO.class));
+
+        logger.info("testUpdateAuthor_Success completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor_OptimisticLockConflict() {
+        Author soapAuthor = new Author();
+        soapAuthor.setId(1L);
+        soapAuthor.setVersion(0L);
+        soapAuthor.setName("Author");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("USA");
+
+        UpdateAuthorRequest request = new UpdateAuthorRequest();
+        request.setAuthor(soapAuthor);
+
+        logger.info("Starting testUpdateAuthor_OptimisticLockConflict");
+
+        when(authorService.updateAuthor(eq(1L), any(AuthorDTO.class)))
+                .thenThrow(new OptimisticLockConflictException("Author with ID 1 was modified by another transaction."));
+
+        assertThrows(
+                OptimisticLockConflictException.class,
+                () -> authorSOAPController.updateAuthor(request)
+        );
+
+        verify(authorService).updateAuthor(eq(1L), any(AuthorDTO.class));
+
+        logger.info("testUpdateAuthor_OptimisticLockConflict completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor_ValidationError() {
+        Author soapAuthor = new Author();
+        soapAuthor.setId(1L);
+        soapAuthor.setVersion(0L);
+        soapAuthor.setName("");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("USA");
+
+        UpdateAuthorRequest request = new UpdateAuthorRequest();
+        request.setAuthor(soapAuthor);
+
+        logger.info("Starting testUpdateAuthor_ValidationError");
+
+        when(authorService.updateAuthor(eq(1L), any(AuthorDTO.class)))
+                .thenThrow(new IllegalArgumentException("Name must not be blank"));
+
+        AuthorValidationException exception = assertThrows(
+                AuthorValidationException.class,
+                () -> authorSOAPController.updateAuthor(request)
+        );
+
+        assertEquals("Validation failed: Name must not be blank", exception.getMessage());
+        verify(authorService).updateAuthor(eq(1L), any(AuthorDTO.class));
+
+        logger.info("testUpdateAuthor_ValidationError completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor_ServiceError() {
+        Author soapAuthor = new Author();
+        soapAuthor.setId(1L);
+        soapAuthor.setVersion(0L);
+        soapAuthor.setName("Author");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("USA");
+
+        UpdateAuthorRequest request = new UpdateAuthorRequest();
+        request.setAuthor(soapAuthor);
+
+        logger.info("Starting testUpdateAuthor_ServiceError");
+
+        when(authorService.updateAuthor(eq(1L), any(AuthorDTO.class)))
+                .thenThrow(new RuntimeException("Database error"));
+
+        AuthorServiceException exception = assertThrows(
+                AuthorServiceException.class,
+                () -> authorSOAPController.updateAuthor(request)
+        );
+
+        assertEquals("Internal server error", exception.getMessage());
+        verify(authorService).updateAuthor(eq(1L), any(AuthorDTO.class));
+
+        logger.info("testUpdateAuthor_ServiceError completed successfully");
     }
 
     @Test

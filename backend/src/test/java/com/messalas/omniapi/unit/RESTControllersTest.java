@@ -303,6 +303,68 @@ public class RESTControllersTest {
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 
+    @Test
+    public void testUpdateBook() {
+        Long bookId = 1L;
+        BookDTO requestBody = BookDTO.builder()
+                .version(0L)
+                .bookName("Updated Book")
+                .publicationYear("2024")
+                .build();
+        BookDTO updatedBook = BookDTO.builder()
+                .id(bookId)
+                .version(1L)
+                .bookName("Updated Book")
+                .publicationYear("2024")
+                .build();
+
+        logger.info("Starting testUpdateBook with id: {}", bookId);
+
+        when(bookService.updateBook(bookId, requestBody)).thenReturn(updatedBook);
+
+        ResponseEntity<BookDTO> response = booksRESTController.updateBook(bookId, requestBody);
+
+        verify(bookService).updateBook(bookId, requestBody);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals("Updated Book", response.getBody().getBookName());
+        assertEquals(1L, response.getBody().getVersion());
+
+        logger.info("testUpdateBook completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor() {
+        Long authorId = 1L;
+        AuthorDTO requestBody = AuthorDTO.builder()
+                .version(0L)
+                .authorName("Updated Author")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+        AuthorDTO updatedAuthor = AuthorDTO.builder()
+                .authorId(authorId)
+                .version(1L)
+                .authorName("Updated Author")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+
+        logger.info("Starting testUpdateAuthor with id: {}", authorId);
+
+        when(authorService.updateAuthor(authorId, requestBody)).thenReturn(updatedAuthor);
+
+        ResponseEntity<AuthorDTO> response = authorRESTController.updateAuthor(authorId, requestBody);
+
+        verify(authorService).updateAuthor(authorId, requestBody);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals("Updated Author", response.getBody().getAuthorName());
+        assertEquals(1L, response.getBody().getVersion());
+
+        logger.info("testUpdateAuthor completed successfully");
+    }
+
     //    User Integration Tests
     @Test
     public void testCreateUser() {

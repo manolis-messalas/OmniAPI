@@ -1,5 +1,6 @@
 package com.messalas.omniapi.unit;
 
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.entities.AuthorEntity;
 import com.messalas.omniapi.repository.AuthorRepository;
@@ -15,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -217,5 +219,128 @@ public class AuthorServiceTest {
         verify(authorRepository, never()).delete(any());
 
         logger.info("testDeleteAuthor_HasBooks completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateAuthor_Success() {
+        Long authorId = 1L;
+        AuthorEntity existingAuthor = new AuthorEntity();
+        existingAuthor.setId(authorId);
+        existingAuthor.setVersion(0L);
+        existingAuthor.setName("Old Name");
+        existingAuthor.setDateOfBirth("1 Jan 1980");
+        existingAuthor.setCountryOfOrigin("USA");
+
+        AuthorEntity savedAuthor = new AuthorEntity();
+        savedAuthor.setId(authorId);
+        savedAuthor.setVersion(1L);
+        savedAuthor.setName("New Name");
+        savedAuthor.setDateOfBirth("1 Jan 1980");
+        savedAuthor.setCountryOfOrigin("UK");
+
+        AuthorDTO authorDTO = AuthorDTO.builder()
+                .version(0L)
+                .authorName("New Name")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+
+        logger.info("Starting testUpdateAuthor_Success");
+
+        when(authorRepository.findById(authorId)).thenReturn(Optional.of(existingAuthor));
+        when(authorRepository.saveAndFlush(any(AuthorEntity.class))).thenReturn(savedAuthor);
+
+        AuthorDTO result = authorService.updateAuthor(authorId, authorDTO);
+
+        assertNotNull(result);
+        assertEquals("New Name", result.getAuthorName());
+        assertEquals(1L, result.getVersion());
+        assertEquals("UK", result.getCountryOfOrigin());
+        verify(authorRepository).findById(authorId);
+        verify(authorRepository).saveAndFlush(any(AuthorEntity.class));
+
+        logger.info("testUpdateAuthor_Success completed successfully");
+    }
+
+    @Test
+    public void testUpdateAuthor_NoVersion() {
+        AuthorDTO authorDTO = AuthorDTO.builder()
+                .authorName("New Name")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+
+        logger.info("Starting testUpdateAuthor_NoVersion");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authorService.updateAuthor(1L, authorDTO)
+        );
+
+        assertEquals("version is required for update", exception.getMessage());
+        verify(authorRepository, never()).findById(any());
+
+        logger.info("testUpdateAuthor_NoVersion completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateAuthor_NotFound() {
+        Long authorId = 999L;
+        AuthorDTO authorDTO = AuthorDTO.builder()
+                .version(0L)
+                .authorName("New Name")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("UK")
+                .build();
+
+        logger.info("Starting testUpdateAuthor_NotFound");
+
+        when(authorRepository.findById(authorId)).thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> authorService.updateAuthor(authorId, authorDTO)
+        );
+
+        assertEquals("Author not found with ID: 999", exception.getMessage());
+        verify(authorRepository).findById(authorId);
+        verify(authorRepository, never()).saveAndFlush(any());
+
+        logger.info("testUpdateAuthor_NotFound completed successfully, exception thrown as expected");
+    }
+
+    @Test
+    public void testUpdateAuthor_OptimisticLockConflict() {
+        Long authorId = 1L;
+        AuthorEntity existingAuthor = new AuthorEntity();
+        existingAuthor.setId(authorId);
+        existingAuthor.setVersion(2L);
+        existingAuthor.setName("Author");
+        existingAuthor.setDateOfBirth("1 Jan 1980");
+        existingAuthor.setCountryOfOrigin("USA");
+
+        AuthorDTO authorDTO = AuthorDTO.builder()
+                .version(1L)
+                .authorName("Author")
+                .dateOfBirth("1 Jan 1980")
+                .countryOfOrigin("USA")
+                .build();
+
+        logger.info("Starting testUpdateAuthor_OptimisticLockConflict");
+
+        when(authorRepository.findById(authorId)).thenReturn(Optional.of(existingAuthor));
+        when(authorRepository.saveAndFlush(any(AuthorEntity.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(AuthorEntity.class, authorId));
+
+        OptimisticLockConflictException exception = assertThrows(
+                OptimisticLockConflictException.class,
+                () -> authorService.updateAuthor(authorId, authorDTO)
+        );
+
+        assertTrue(exception.getMessage().contains("Author with ID 1"));
+        verify(authorRepository).findById(authorId);
+        verify(authorRepository).saveAndFlush(any(AuthorEntity.class));
+
+        logger.info("testUpdateAuthor_OptimisticLockConflict completed successfully, exception thrown as expected");
     }
 }
