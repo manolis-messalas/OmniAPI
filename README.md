@@ -80,21 +80,47 @@ OmniAPI hosts its **own OAuth2 Authorization Server** (Spring Authorization Serv
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/rest/authors` | List all authors |
-| GET | `/api/rest/authors/{id}` | Get author by ID |
-| POST | `/api/rest/authors` | Create author |
-| PUT | `/api/rest/authors/{id}` | Update author |
+| GET | `/api/rest/author/{id}` | Get author by ID |
+| POST | `/api/rest/createAuthor` | Create author |
+| PUT | `/api/rest/authors/{id}` | Update author (requires `version`) |
 | DELETE | `/api/rest/authors/{id}` | Delete author |
 | GET | `/api/rest/books` | List all books |
-| GET | `/api/rest/books/{id}` | Get book by ID |
-| POST | `/api/rest/books` | Create book |
-| PUT | `/api/rest/books/{id}` | Update book |
+| GET | `/api/rest/book/{name}` | Get book by name |
+| POST | `/api/rest/addBook` | Create book |
+| PUT | `/api/rest/books/{id}` | Update book (requires `version`) |
 | DELETE | `/api/rest/books/{id}` | Delete book |
 
 All `/api/rest/**` endpoints require a valid JWT bearer token.
 
+#### Optimistic Locking on PUT
+
+Both PUT endpoints use optimistic locking to prevent lost updates under concurrent writes.
+
+Every GET and POST response includes a `version` field. Pass this value back unchanged in the PUT request body:
+
+```json
+PUT /api/rest/books/1
+{
+  "version": 0,
+  "bookName": "Clean Code",
+  "publicationYear": "2008",
+  "authorDTO": { "authorName": "Robert Martin" }
+}
+```
+
+| Response | Meaning |
+|----------|---------|
+| `200 OK` | Update succeeded; body contains the saved entity with the new incremented `version`. |
+| `400 Bad Request` | `version` field was missing or null. |
+| `409 Conflict` | Another request updated this record after your last fetch. Re-fetch to get the current `version` and retry. |
+
+The same contract applies to the SOAP `UpdateBookRequest` / `UpdateAuthorRequest` operations, where a version mismatch returns a `CLIENT` fault.
+
 ### SOAP — `/api/ws`
 
 WSDL available at `http://localhost:9090/api/ws/bookshelf.wsdl`. Namespace: `http://spring.io/guides/gs-producing-web-service`.
+
+Operations: `CreateBookAuthorRequest`, `CreateBookRequest`, `UpdateBookRequest`, `DeleteBookRequest`, `GetBookRequest`, `GetBooksRequest`, `CreateAuthorRequest`, `UpdateAuthorRequest`, `DeleteAuthorRequest`, `GetAuthorRequest`, `GetAuthorsRequest`.
 
 ---
 
