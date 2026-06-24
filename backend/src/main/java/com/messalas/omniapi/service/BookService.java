@@ -1,5 +1,6 @@
 package com.messalas.omniapi.service;
 
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.mappers.BookMapper;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
 import com.messalas.omniapi.model.dto.BookDTO;
@@ -12,6 +13,7 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -69,9 +71,13 @@ public class BookService {
     }
 
     @Transactional
-    public void updateBook(Long id, BookDTO bookDTO) {
+    public BookDTO updateBook(Long id, BookDTO bookDTO) {
+        if (bookDTO.getVersion() == null) {
+            throw new IllegalArgumentException("version is required for update");
+        }
         BookEntity book = bookRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Book not found with ID: " + id));
+        book.setVersion(bookDTO.getVersion());
         book.setName(bookDTO.getBookName());
         book.setPublicationYear(bookDTO.getPublicationYear());
         if (bookDTO.getAuthorDTO() != null && bookDTO.getAuthorDTO().getAuthorName() != null) {
@@ -80,7 +86,13 @@ public class BookService {
                             "Author not found with name: " + bookDTO.getAuthorDTO().getAuthorName()));
             book.setAuthorEntity(author);
         }
-        bookRepository.save(book);
+        try {
+            BookEntity saved = bookRepository.saveAndFlush(book);
+            return BookMapper.INSTANCE.bookEntityToBookDTO(saved);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new OptimisticLockConflictException(
+                    "Book with ID " + id + " was modified by another transaction. Re-fetch and retry.");
+        }
     }
 
 }

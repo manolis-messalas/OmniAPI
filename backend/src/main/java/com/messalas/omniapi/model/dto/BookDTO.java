@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class BookDTO {
 
     private Long id;
+    private Long version;
     private String bookName;
     private String publicationYear;
     private AuthorDTO authorDTO;

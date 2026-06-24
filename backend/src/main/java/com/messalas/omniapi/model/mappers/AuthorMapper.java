@@ -12,12 +12,14 @@ public interface AuthorMapper {
     AuthorMapper INSTANCE = Mappers.getMapper(AuthorMapper.class);
 
     @Mapping(source = "id", target = "authorId")
+    @Mapping(source = "version", target = "version")
     @Mapping(source = "name", target = "authorName")
     @Mapping(source = "dateOfBirth", target = "dateOfBirth")
     @Mapping(source = "countryOfOrigin", target = "countryOfOrigin")
     AuthorDTO authorEntityToAuthorDTO(AuthorEntity author);
 
     @Mapping(source = "authorId", target = "id")
+    @Mapping(source = "version", target = "version")
     @Mapping(source = "authorName", target = "name")
     @Mapping(source = "dateOfBirth", target = "dateOfBirth")
     @Mapping(source = "countryOfOrigin", target = "countryOfOrigin")

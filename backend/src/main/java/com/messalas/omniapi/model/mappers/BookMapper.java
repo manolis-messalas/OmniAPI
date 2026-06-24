@@ -12,12 +12,14 @@ public interface BookMapper {
     BookMapper INSTANCE = Mappers.getMapper(BookMapper.class);
 
     @Mapping(source = "id", target = "id")
+    @Mapping(source = "version", target = "version")
     @Mapping(source = "name", target = "bookName")
     @Mapping(source = "publicationYear", target = "publicationYear")
     @Mapping(source = "authorEntity", target = "authorDTO")
     BookDTO bookEntityToBookDTO(BookEntity bookEntity);
 
     @Mapping(source = "id", target = "id")
+    @Mapping(source = "version", target = "version")
     @Mapping(source = "bookName", target = "name")
     @Mapping(source = "publicationYear", target = "publicationYear")
     @Mapping(source = "authorDTO", target = "authorEntity")

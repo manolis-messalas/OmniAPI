@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
+
 @RestControllerAdvice
 public class RESTExceptionHandler {
 
@@ -36,6 +38,19 @@ public class RESTExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(OptimisticLockConflictException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockConflict(OptimisticLockConflictException ex) {
+        log.warn("Optimistic lock conflict: {}", ex.getMessage());
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                System.currentTimeMillis()
+        );
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(Exception.class)

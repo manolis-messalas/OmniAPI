@@ -83,7 +83,7 @@ These four are deliberately one connected story, not four isolated features — 
 
 **5a. ACID**
 - *Layer:* Architecture / Backend
-- *Proof point:* `@Transactional` boundary when creating a book and linking its author atomically. Pair with the optimistic-locking discussion (`@Version` on a frequently-updated entity, 409 on conflict) to show you understand isolation in practice, not just the acronym.
+- *Proof point:* `@Transactional` boundary when creating a book and linking its author atomically. Pair with the implemented optimistic locking (`@Version` on `BookEntity`/`AuthorEntity`, `ObjectOptimisticLockingFailureException` → 409 Conflict) to demonstrate isolation in practice, not just the acronym — see AGENTS.md for the full pattern.
 
 **5b. CAP**
 - *Layer:* Architecture
@@ -105,6 +105,22 @@ These four are deliberately one connected story, not four isolated features — 
 - **Centralized exception handling** 🔲 — upgrade the existing `exceptions` package to `@RestControllerAdvice` returning `ProblemDetail` (RFC 7807) for a consistent error contract across REST *and* a SOAP fault-mapping equivalent.
 - **JPA `Specification` / dynamic query building** 🔲 — replace one-off repository finder methods with composable `Specification<T>` queries for a search/filter endpoint (e.g., book search by author/genre/year). Doubles as the concrete OCP example referenced in Tier 5c.
 - **React (not Angular) + TypeScript** 🔲 — React stays; the actual gap is `.jsx` → `.tsx` with typed Axios responses matching backend DTOs, plus a centralized Axios client with auth/401 interceptors and TanStack Query for server-state caching.
+
+**Idempotency keys (REST & SOAP)** 🔲
+- *Signal:* Demonstrates understanding of distributed-system safety for non-idempotent operations (POST/PATCH) — clients can safely retry on timeout without risking duplicate side effects.
+- *Layer:* Backend / API Design
+- *Proof point:* Add an `Idempotency-Key: <UUID>` header. A `HandlerInterceptor` (REST) and a custom `EndpointInterceptor` (SOAP) intercept every mutating request: on first receipt, execute normally and cache `(key → serialized response)` in Redis with a short TTL (e.g. 24 h); on duplicate receipt, replay the cached response without touching the service layer. Return `409 Conflict` if the same key arrives with a different request body. Discuss TTL choice and key-namespace collisions per client/user.
+
+**Optimistic locking** ✅
+- `@Version Long version` on `BookEntity` and `AuthorEntity`; `version` in both DTOs and in the `<Book>`/`<Author>` XSD elements.
+- Service rejects updates missing `version` (400), sets the client-supplied version on the entity before `saveAndFlush()`, catches `ObjectOptimisticLockingFailureException` → `OptimisticLockConflictException`.
+- REST: 409 Conflict via `RESTExceptionHandler`; successful PUT returns the saved DTO with the new incremented version.
+- SOAP: `UpdateBookRequest`/`UpdateAuthorRequest` operations added to both SOAP controllers; conflict surfaces as `@SoapFault(faultCode = FaultCode.CLIENT)`.
+
+**Soft delete** 🔲
+- *Signal:* Data durability and audit trail without hard deletes; knowing the pitfalls (unique-constraint collisions, leaking deleted rows into queries, cascade behaviour) separates a senior from a junior.
+- *Layer:* Backend / Data
+- *Proof point:* Add `deleted_at TIMESTAMP` (nullable) to `Book`/`Author`. Annotate entities with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6) so all queries automatically exclude deleted rows without touching every repository method. The `delete` service method sets `deleted_at = now()` rather than issuing a `DELETE`. Add a privileged `/admin/books/{id}/restore` endpoint that nulls `deleted_at`. Discuss the unique-constraint collision problem (e.g., ISBN uniqueness) and one mitigation: a partial index (`UNIQUE (isbn) WHERE deleted_at IS NULL`) or folding `deleted_at` into the unique key. SOAP equivalent: `SoftDeleteBookRequest`/`RestoreBookRequest` operations in the WSDL.
 
 ## Build Order
 

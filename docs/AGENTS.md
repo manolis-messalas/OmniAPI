@@ -105,10 +105,30 @@ public interface AuthorMapper {
 - Custom exceptions (e.g., `AuthorServiceException`, `BookValidationException`) in `exceptions/`
 - Service layer throws `EntityNotFoundException` for missing records (caught by controllers)
 - SOAP fault mapping via `@SoapFault(faultCode = FaultCode.SERVER)`
+- `OptimisticLockConflictException` — annotated `@SoapFault(faultCode = FaultCode.CLIENT)`; caught by `RESTExceptionHandler` as **409 Conflict** for REST callers
 
 ### Transactional Boundaries
 - Mark service methods `@Transactional` when modifying data (e.g., delete operations)
 - Rollback on `RuntimeException` (not checked exceptions)
+
+### Optimistic Locking
+
+`BookEntity` and `AuthorEntity` carry a `@Version Long version` column managed by Hibernate. Every `BookDTO`/`AuthorDTO` exposes this field so the client always knows the current version after a GET or successful PUT.
+
+**Update contract:**
+- Client must include `version` in every PUT/SOAP-update body; omitting it returns **400 Bad Request**.
+- Service sets `entity.version = dto.version` before `saveAndFlush()`, so Hibernate issues `UPDATE … WHERE id=? AND version=?` using the client's expected version.
+- Concurrent modification → `ObjectOptimisticLockingFailureException` → `OptimisticLockConflictException` → **409 Conflict** (REST) / `FaultCode.CLIENT` SOAP fault.
+- Successful update returns the saved DTO (with the new incremented version) so the client can continue without a re-fetch.
+
+**Key files:**
+- `model/entities/BookEntity.java`, `AuthorEntity.java` — `@Version Long version`
+- `model/dto/BookDTO.java`, `AuthorDTO.java` — `Long version` field
+- `model/mappers/BookMapper.java`, `AuthorMapper.java` — `version` mapped in both directions
+- `exceptions/OptimisticLockConflictException.java` — `@SoapFault(faultCode = FaultCode.CLIENT)`
+- `exceptions/RESTExceptionHandler.java` — maps `OptimisticLockConflictException` → 409
+- `api/soap/BookSOAPController.java`, `AuthorSOAPController.java` — `UpdateBookRequest`/`UpdateAuthorRequest` operations with version propagation
+- `src/main/resources/xsd/book.xsd`, `author.xsd` — `<version>` element added to `Book`/`Author` complex types
 
 ---
 

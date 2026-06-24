@@ -18,6 +18,7 @@ public class AuthorDTO {
     }
 
     private Long authorId;
+    private Long version;
     private String authorName;
     private String dateOfBirth;
     private String countryOfOrigin;

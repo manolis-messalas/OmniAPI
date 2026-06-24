@@ -1,5 +1,6 @@
 package com.messalas.omniapi.service;
 
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.mappers.AuthorMapper;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.entities.AuthorEntity;
@@ -10,6 +11,7 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -57,13 +59,23 @@ public class AuthorService {
     }
 
     @Transactional
-    public void updateAuthor(Long id, AuthorDTO authorDTO) {
+    public AuthorDTO updateAuthor(Long id, AuthorDTO authorDTO) {
+        if (authorDTO.getVersion() == null) {
+            throw new IllegalArgumentException("version is required for update");
+        }
         AuthorEntity author = authorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Author not found with ID: " + id));
+        author.setVersion(authorDTO.getVersion());
         author.setName(authorDTO.getAuthorName());
         author.setDateOfBirth(authorDTO.getDateOfBirth());
         author.setCountryOfOrigin(authorDTO.getCountryOfOrigin());
-        authorRepository.save(author);
+        try {
+            AuthorEntity saved = authorRepository.saveAndFlush(author);
+            return AuthorMapper.INSTANCE.authorEntityToAuthorDTO(saved);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new OptimisticLockConflictException(
+                    "Author with ID " + id + " was modified by another transaction. Re-fetch and retry.");
+        }
     }
 
 }

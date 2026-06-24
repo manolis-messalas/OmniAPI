@@ -3,6 +3,7 @@ package com.messalas.omniapi.api.soap;
 import bookshelf.generated.*;
 import com.messalas.omniapi.exceptions.AuthorServiceException;
 import com.messalas.omniapi.exceptions.AuthorValidationException;
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.service.AuthorService;
 import org.slf4j.Logger;
@@ -47,6 +48,31 @@ public class AuthorSOAPController {
                 throw new AuthorValidationException("Validation failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("Failed to create author", e);
+            throw new AuthorServiceException("Internal server error");
+        }
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "UpdateAuthorRequest")
+    @ResponsePayload
+    public UpdateAuthorResponse updateAuthor(@RequestPayload UpdateAuthorRequest request) {
+        try {
+            bookshelf.generated.Author requestAuthor = request.getAuthor();
+            AuthorDTO authorDTO = AuthorDTO.builder()
+                    .version(requestAuthor.getVersion())
+                    .authorName(requestAuthor.getName())
+                    .dateOfBirth(requestAuthor.getDateOfBirth())
+                    .countryOfOrigin(requestAuthor.getCountryOfOrigin())
+                    .build();
+            AuthorDTO updated = authorService.updateAuthor(requestAuthor.getId(), authorDTO);
+            UpdateAuthorResponse response = new UpdateAuthorResponse();
+            response.setAuthor(mapAuthorDTOToRequestDTO(updated));
+            return response;
+        } catch (OptimisticLockConflictException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new AuthorValidationException("Validation failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to update author", e);
             throw new AuthorServiceException("Internal server error");
         }
     }
@@ -111,6 +137,7 @@ public class AuthorSOAPController {
     public Author mapAuthorDTOToRequestDTO(AuthorDTO authorDTO){
         Author soapAuthor = new Author();
         soapAuthor.setId(authorDTO.getAuthorId());
+        soapAuthor.setVersion(authorDTO.getVersion());
         soapAuthor.setName(authorDTO.getAuthorName());
         soapAuthor.setDateOfBirth(authorDTO.getDateOfBirth());
         soapAuthor.setCountryOfOrigin(authorDTO.getCountryOfOrigin());
@@ -122,6 +149,7 @@ public class AuthorSOAPController {
                 .map(authorDTO -> {
                     Author soapAuthor = new Author();
                     soapAuthor.setId(authorDTO.getAuthorId());
+                    soapAuthor.setVersion(authorDTO.getVersion());
                     soapAuthor.setName(authorDTO.getAuthorName());
                     soapAuthor.setDateOfBirth(authorDTO.getDateOfBirth());
                     soapAuthor.setCountryOfOrigin(authorDTO.getCountryOfOrigin());

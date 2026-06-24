@@ -3,6 +3,7 @@ package com.messalas.omniapi.api.soap;
 import bookshelf.generated.*;
 import com.messalas.omniapi.exceptions.BookServiceException;
 import com.messalas.omniapi.exceptions.BookValidationException;
+import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
 import com.messalas.omniapi.model.dto.BookDTO;
 import com.messalas.omniapi.service.BookService;
@@ -79,6 +80,34 @@ public class BookSOAPController {
         }
     }
 
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "UpdateBookRequest")
+    @ResponsePayload
+    public UpdateBookResponse updateBook(@RequestPayload UpdateBookRequest request) {
+        try {
+            bookshelf.generated.Book requestBook = request.getBook();
+            com.messalas.omniapi.model.dto.AuthorDTO authorDTO = com.messalas.omniapi.model.dto.AuthorDTO.builder()
+                    .authorName(requestBook.getAuthorName())
+                    .build();
+            BookDTO bookDTO = BookDTO.builder()
+                    .version(requestBook.getVersion())
+                    .bookName(requestBook.getName())
+                    .publicationYear(requestBook.getPublicationYear())
+                    .authorDTO(authorDTO)
+                    .build();
+            BookDTO updated = bookService.updateBook(requestBook.getId(), bookDTO);
+            UpdateBookResponse response = new UpdateBookResponse();
+            response.setBook(mapBookDTOToRequestDTO(updated));
+            return response;
+        } catch (OptimisticLockConflictException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new BookValidationException("Validation failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to update book", e);
+            throw new BookServiceException("Internal server error");
+        }
+    }
+
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "DeleteBookRequest")
     @ResponsePayload
     public DeleteBookResponse deleteBook(@RequestPayload DeleteBookRequest request){
@@ -129,6 +158,7 @@ public class BookSOAPController {
     public Book mapBookDTOToRequestDTO(com.messalas.omniapi.model.dto.BookDTO bookDTO){
         Book soapBook = new Book();
         soapBook.setId(bookDTO.getId());
+        soapBook.setVersion(bookDTO.getVersion());
         soapBook.setName(bookDTO.getBookName());
         soapBook.setPublicationYear(bookDTO.getPublicationYear());
         soapBook.setAuthorName(bookDTO.getAuthorDTO().getAuthorName());
@@ -140,6 +170,7 @@ public class BookSOAPController {
                 .map(bookDTO -> {
                     Book soapBook = new Book();
                     soapBook.setId(bookDTO.getId());
+                    soapBook.setVersion(bookDTO.getVersion());
                     soapBook.setName(bookDTO.getBookName());
                     soapBook.setPublicationYear(bookDTO.getPublicationYear());
                     soapBook.setAuthorName(bookDTO.getAuthorDTO().getAuthorName());

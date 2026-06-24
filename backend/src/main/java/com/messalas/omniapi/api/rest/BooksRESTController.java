@@ -41,9 +41,8 @@ public class BooksRESTController {
     public ResponseEntity<BookDTO> getBook(@PathVariable String name){ return ResponseEntity.ok(bookService.findBookByName(name)); }
 
     @PutMapping("/books/{id}")
-    public ResponseEntity<Void> updateBook(@PathVariable Long id, @RequestBody BookDTO bookDTO) {
-        bookService.updateBook(id, bookDTO);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<BookDTO> updateBook(@PathVariable Long id, @RequestBody BookDTO bookDTO) {
+        return ResponseEntity.ok(bookService.updateBook(id, bookDTO));
     }
 
     @DeleteMapping("/books/{id}")
