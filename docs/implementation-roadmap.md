@@ -106,10 +106,14 @@ These four are deliberately one connected story, not four isolated features — 
 - **JPA `Specification` / dynamic query building** 🔲 — replace one-off repository finder methods with composable `Specification<T>` queries for a search/filter endpoint (e.g., book search by author/genre/year). Doubles as the concrete OCP example referenced in Tier 5c.
 - **React (not Angular) + TypeScript** 🔲 — React stays; the actual gap is `.jsx` → `.tsx` with typed Axios responses matching backend DTOs, plus a centralized Axios client with auth/401 interceptors and TanStack Query for server-state caching.
 
-**Idempotency keys (REST & SOAP)** 🔲
-- *Signal:* Demonstrates understanding of distributed-system safety for non-idempotent operations (POST/PATCH) — clients can safely retry on timeout without risking duplicate side effects.
-- *Layer:* Backend / API Design
-- *Proof point:* Add an `Idempotency-Key: <UUID>` header. A `HandlerInterceptor` (REST) and a custom `EndpointInterceptor` (SOAP) intercept every mutating request: on first receipt, execute normally and cache `(key → serialized response)` in Redis with a short TTL (e.g. 24 h); on duplicate receipt, replay the cached response without touching the service layer. Return `409 Conflict` if the same key arrives with a different request body. Discuss TTL choice and key-namespace collisions per client/user.
+**Idempotency keys** ✅
+- Implemented for all non-idempotent POST endpoints (`/createAuthor`, `/addBook`, `/addBookAuthor`) and their SOAP equivalents (`CreateAuthorRequest`, `CreateBookRequest`, `CreateBookAuthorRequest`).
+- REST: `Idempotency-Key: <UUID>` header required; missing → 400, duplicate → 409 Conflict.
+- SOAP: `idempotencyKey` element in XSD; missing → `AuthorValidationException`/`BookValidationException` → `FaultCode.CLIENT` fault; duplicate → `DuplicateRequestException` → `FaultCode.CLIENT` fault.
+- `idempotency_keys` table (PK constraint) provides atomic duplicate detection via `saveAndFlush` + catching `DataIntegrityViolationException` — no `existsById + save` race.
+- On business-logic failure the key is deleted in a `REQUIRES_NEW` transaction so the client can safely retry with the same key.
+- Frontend generates one UUID per form open (`useState(() => crypto.randomUUID())`); same key reused for retries.
+- *Possible extension:* response-replay caching in Redis; TTL-based expiry of old keys.
 
 **Optimistic locking** ✅
 - `@Version Long version` on `BookEntity` and `AuthorEntity`; `version` in both DTOs and in the `<Book>`/`<Author>` XSD elements.

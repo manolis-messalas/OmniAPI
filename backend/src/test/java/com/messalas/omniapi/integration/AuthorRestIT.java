@@ -3,6 +3,7 @@ package com.messalas.omniapi.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import org.junit.jupiter.api.AfterEach;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +109,7 @@ public class AuthorRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/createAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newAuthor)))
                 .andExpect(status().isOk());
@@ -131,6 +133,7 @@ public class AuthorRestIT {
                 .build();
 
         String createResponse = mockMvc.perform(post("/api/rest/createAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(authorToDelete)))
                 .andExpect(status().isOk())
@@ -187,6 +190,7 @@ public class AuthorRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/createAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidAuthor)))
                 .andExpect(status().isOk());

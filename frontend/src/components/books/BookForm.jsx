@@ -9,6 +9,8 @@ export default function BookForm({ initial, authors, onSaved, onCancel }) {
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  // Generated once per form open so retries of the same submit reuse the same key
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -25,7 +27,7 @@ export default function BookForm({ initial, authors, onSaved, onCancel }) {
       if (initial) {
         await updateBook(initial.id, payload)
       } else {
-        await addBook(payload)
+        await addBook(payload, idempotencyKey)
       }
       onSaved()
     } catch (err) {

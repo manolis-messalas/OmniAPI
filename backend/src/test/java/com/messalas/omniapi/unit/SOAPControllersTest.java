@@ -11,8 +11,10 @@ import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
 import com.messalas.omniapi.model.dto.BookDTO;
+import com.messalas.omniapi.exceptions.DuplicateRequestException;
 import com.messalas.omniapi.service.AuthorService;
 import com.messalas.omniapi.service.BookService;
+import com.messalas.omniapi.service.IdempotencyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,9 @@ public class SOAPControllersTest {
 
     @Mock
     private BookService bookService;
+
+    @Mock
+    private IdempotencyService idempotencyService;
 
     @InjectMocks
     private AuthorSOAPController authorSOAPController;
@@ -74,6 +79,7 @@ public class SOAPControllersTest {
         soapAuthor.setCountryOfOrigin("USA");
 
         CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setAuthor(soapAuthor);
 
         logger.info("Starting testCreateAuthor_Success");
@@ -96,6 +102,7 @@ public class SOAPControllersTest {
         soapAuthor.setName("Invalid Author");
 
         CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setAuthor(soapAuthor);
 
         logger.info("Starting testCreateAuthor_ValidationError");
@@ -122,6 +129,7 @@ public class SOAPControllersTest {
         soapAuthor.setCountryOfOrigin("USA");
 
         CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setAuthor(soapAuthor);
 
         logger.info("Starting testCreateAuthor_ServiceError");
@@ -361,6 +369,7 @@ public class SOAPControllersTest {
         soapBookAuthorDTO.setCountryOfOrigin("USA");
 
         CreateBookAuthorRequest request = new CreateBookAuthorRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setBookAuthorDTO(soapBookAuthorDTO);
 
         logger.info("Starting testCreateBookAuthor_Success");
@@ -382,6 +391,7 @@ public class SOAPControllersTest {
         soapBookAuthorDTO.setBookName("Invalid Book");
 
         CreateBookAuthorRequest request = new CreateBookAuthorRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setBookAuthorDTO(soapBookAuthorDTO);
 
         logger.info("Starting testCreateBookAuthor_Failure");
@@ -406,6 +416,7 @@ public class SOAPControllersTest {
         soapBook.setAuthorName("Test Author");
 
         CreateBookRequest request = new CreateBookRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setBook(soapBook);
 
         logger.info("Starting testCreateBook_Success");
@@ -428,6 +439,7 @@ public class SOAPControllersTest {
         soapBook.setName("Invalid Book");
 
         CreateBookRequest request = new CreateBookRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setBook(soapBook);
 
         logger.info("Starting testCreateBook_ValidationError");
@@ -454,6 +466,7 @@ public class SOAPControllersTest {
         soapBook.setAuthorName("Test Author");
 
         CreateBookRequest request = new CreateBookRequest();
+        request.setIdempotencyKey("test-idem-key");
         request.setBook(soapBook);
 
         logger.info("Starting testCreateBook_ServiceError");
@@ -875,6 +888,142 @@ public class SOAPControllersTest {
         verify(authorService).updateAuthor(eq(1L), any(AuthorDTO.class));
 
         logger.info("testUpdateAuthor_ServiceError completed successfully");
+    }
+
+    @Test
+    public void testCreateAuthor_MissingIdempotencyKey() {
+        Author soapAuthor = new Author();
+        soapAuthor.setName("Test Author");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("USA");
+
+        CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setAuthor(soapAuthor);
+        // no idempotencyKey set
+
+        logger.info("Starting testCreateAuthor_MissingIdempotencyKey");
+
+        AuthorValidationException ex = assertThrows(
+                AuthorValidationException.class,
+                () -> authorSOAPController.createAuthor(request));
+
+        assertTrue(ex.getMessage().contains("Idempotency-Key is required"));
+
+        logger.info("testCreateAuthor_MissingIdempotencyKey completed successfully");
+    }
+
+    @Test
+    public void testCreateAuthor_DuplicateKey() {
+        Author soapAuthor = new Author();
+        soapAuthor.setName("Test Author");
+        soapAuthor.setDateOfBirth("1 Jan 1980");
+        soapAuthor.setCountryOfOrigin("USA");
+
+        CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setIdempotencyKey("dup-key");
+        request.setAuthor(soapAuthor);
+
+        logger.info("Starting testCreateAuthor_DuplicateKey");
+
+        doThrow(new DuplicateRequestException("Duplicate request: Idempotency-Key 'dup-key' was already processed"))
+                .when(idempotencyService).registerKey("dup-key");
+
+        assertThrows(DuplicateRequestException.class, () -> authorSOAPController.createAuthor(request));
+
+        verify(authorService, never()).createAuthor(any());
+
+        logger.info("testCreateAuthor_DuplicateKey completed successfully");
+    }
+
+    @Test
+    public void testCreateBook_MissingIdempotencyKey() {
+        Book soapBook = new Book();
+        soapBook.setName("Test Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Test Author");
+
+        CreateBookRequest request = new CreateBookRequest();
+        request.setBook(soapBook);
+        // no idempotencyKey set
+
+        logger.info("Starting testCreateBook_MissingIdempotencyKey");
+
+        BookValidationException ex = assertThrows(
+                BookValidationException.class,
+                () -> bookSOAPController.createBook(request));
+
+        assertTrue(ex.getMessage().contains("Idempotency-Key is required"));
+
+        logger.info("testCreateBook_MissingIdempotencyKey completed successfully");
+    }
+
+    @Test
+    public void testCreateBook_DuplicateKey() {
+        Book soapBook = new Book();
+        soapBook.setName("Test Book");
+        soapBook.setPublicationYear("2024");
+        soapBook.setAuthorName("Test Author");
+
+        CreateBookRequest request = new CreateBookRequest();
+        request.setIdempotencyKey("dup-book-key");
+        request.setBook(soapBook);
+
+        logger.info("Starting testCreateBook_DuplicateKey");
+
+        doThrow(new DuplicateRequestException("Duplicate request: Idempotency-Key 'dup-book-key' was already processed"))
+                .when(idempotencyService).registerKey("dup-book-key");
+
+        assertThrows(DuplicateRequestException.class, () -> bookSOAPController.createBook(request));
+
+        verify(bookService, never()).saveBook(any());
+
+        logger.info("testCreateBook_DuplicateKey completed successfully");
+    }
+
+    @Test
+    public void testCreateBookAuthor_MissingIdempotencyKey() {
+        bookshelf.generated.BookAuthorDTO soapBookAuthorDTO = new bookshelf.generated.BookAuthorDTO();
+        soapBookAuthorDTO.setBookName("Test Book");
+        soapBookAuthorDTO.setAuthorName("Test Author");
+
+        CreateBookAuthorRequest request = new CreateBookAuthorRequest();
+        request.setBookAuthorDTO(soapBookAuthorDTO);
+        // no idempotencyKey set
+
+        logger.info("Starting testCreateBookAuthor_MissingIdempotencyKey");
+
+        BookValidationException ex = assertThrows(
+                BookValidationException.class,
+                () -> bookSOAPController.createBookAuthor(request));
+
+        assertTrue(ex.getMessage().contains("Idempotency-Key is required"));
+
+        logger.info("testCreateBookAuthor_MissingIdempotencyKey completed successfully");
+    }
+
+    @Test
+    public void testCreateBookAuthor_DuplicateKey() {
+        bookshelf.generated.BookAuthorDTO soapBookAuthorDTO = new bookshelf.generated.BookAuthorDTO();
+        soapBookAuthorDTO.setBookName("Test Book");
+        soapBookAuthorDTO.setAuthorName("Test Author");
+        soapBookAuthorDTO.setPublicationYear("2024");
+        soapBookAuthorDTO.setDateOfBirth("1 Jan 1980");
+        soapBookAuthorDTO.setCountryOfOrigin("USA");
+
+        CreateBookAuthorRequest request = new CreateBookAuthorRequest();
+        request.setIdempotencyKey("dup-bookauthor-key");
+        request.setBookAuthorDTO(soapBookAuthorDTO);
+
+        logger.info("Starting testCreateBookAuthor_DuplicateKey");
+
+        doThrow(new DuplicateRequestException("Duplicate request: Idempotency-Key 'dup-bookauthor-key' was already processed"))
+                .when(idempotencyService).registerKey("dup-bookauthor-key");
+
+        assertThrows(DuplicateRequestException.class, () -> bookSOAPController.createBookAuthor(request));
+
+        verify(bookService, never()).saveBookAuthor(any());
+
+        logger.info("testCreateBookAuthor_DuplicateKey completed successfully");
     }
 
     @Test

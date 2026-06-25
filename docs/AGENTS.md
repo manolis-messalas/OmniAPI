@@ -111,6 +111,32 @@ public interface AuthorMapper {
 - Mark service methods `@Transactional` when modifying data (e.g., delete operations)
 - Rollback on `RuntimeException` (not checked exceptions)
 
+### Idempotency Keys
+
+`POST /api/rest/createAuthor`, `POST /api/rest/addBook`, and `POST /api/rest/addBookAuthor` require an `Idempotency-Key: <UUID>` request header.
+
+**Contract:**
+- Missing or blank key → **400 Bad Request**.
+- New key → key is stored atomically in `idempotency_keys` (PK constraint), then business logic runs.
+- Duplicate key → **409 Conflict** (`DuplicateRequestException`).
+- Business logic failure → key is deleted in a separate `REQUIRES_NEW` transaction so the client can safely retry with the same key.
+- Concurrent duplicate keys are handled by the PostgreSQL/H2 primary-key constraint; no `existsById + save` race.
+
+**Frontend:** `AuthorForm.jsx` and `BookForm.jsx` generate a UUID via `crypto.randomUUID()` in `useState` initializer (once per form open). The same key is reused for any retry of that submit. A new form open means a new key — a new logical operation.
+
+**SOAP equivalent:** `idempotencyKey` is an optional `xs:string` element added to `CreateAuthorRequest`, `CreateBookRequest`, and `CreateBookAuthorRequest` in the XSD. The SOAP controllers validate its presence (missing → `AuthorValidationException`/`BookValidationException` → `FaultCode.CLIENT` SOAP fault), call `IdempotencyService.registerKey()`, and on duplicate `DuplicateRequestException` is annotated `@SoapFault(faultCode = FaultCode.CLIENT)` so Spring WS maps it to a client SOAP fault automatically.
+
+**Key files:**
+- `model/entities/IdempotencyKeyEntity.java` — JPA entity mapping to `idempotency_keys` table
+- `repository/IdempotencyKeyRepository.java` — `JpaRepository<IdempotencyKeyEntity, String>`
+- `exceptions/DuplicateRequestException.java` — maps to 409 via `RESTExceptionHandler`
+- `service/IdempotencyService.java` — `registerKey()` and `deleteKey()`, both `REQUIRES_NEW`
+- `api/rest/AuthorRESTController.java`, `BooksRESTController.java` — enforce header, wrap service calls
+- `api/soap/AuthorSOAPController.java`, `BookSOAPController.java` — read `request.getIdempotencyKey()`, same guard + rollback pattern
+- `src/main/resources/xsd/author.xsd`, `book.xsd`, `bookshelf.xsd` — `idempotencyKey` element on create requests
+- `src/api/authorsApi.js`, `booksApi.js` — pass `idempotencyKey` as second argument
+- `components/authors/AuthorForm.jsx`, `components/books/BookForm.jsx` — generate key on mount
+
 ### Optimistic Locking
 
 `BookEntity` and `AuthorEntity` carry a `@Version Long version` column managed by Hibernate. Every `BookDTO`/`AuthorDTO` exposes this field so the client always knows the current version after a GET or successful PUT.
@@ -365,9 +391,12 @@ src/main/java/com/messalas/omniapi/
 │   ├── rest/                               # REST endpoints (@RestController)
 │   └── soap/                               # SOAP endpoints (@Endpoint)
 ├── service/                                # Business logic (@Service)
+│   └── IdempotencyService.java             # registerKey() / deleteKey(), both REQUIRES_NEW
 ├── repository/                             # Data access (JpaRepository)
+│   └── IdempotencyKeyRepository.java       # JpaRepository<IdempotencyKeyEntity, String>
 ├── model/
 │   ├── entities/                           # JPA @Entity classes
+│   │   └── IdempotencyKeyEntity.java       # Maps to idempotency_keys table (PK = key string)
 │   ├── dto/                                # DTOs for API contracts
 │   ├── mappers/                            # MapStruct @Mapper interfaces
 │   └── builders/                           # Manual builders
@@ -375,6 +404,7 @@ src/main/java/com/messalas/omniapi/
 │   ├── OmniApiUserDetailsService.java      # Implements UserDetailsService → queries app_user table
 │   └── oauth/AuthorizationServerConfig.java # Self-hosted OAuth2 Authorization Server
 ├── exceptions/                             # Custom exceptions + SOAP faults
+│   └── DuplicateRequestException.java      # @SoapFault(CLIENT); REST → 409 via RESTExceptionHandler
 └── db/                                     # Database loaders (CommandLineRunner)
     └── UserDataLoader.java                 # Seeds default admin user if app_user is empty (all profiles)
 
@@ -386,8 +416,11 @@ src/main/resources/
 src/test/java/com/messalas/omniapi/
 ├── DatabaseConnectionTest.java             # Profile connectivity checks
 ├── unit/                                   # Unit tests (*Test.java, @WebMvcTest/@MockBean)
+│   ├── IdempotencyServiceTest.java         # Unit tests for IdempotencyService
 │   └── mappers/                            # MapStruct mapper unit tests
 └── integration/                            # Integration tests (*IT.java, @SpringBootTest, real DB)
+    ├── IdempotencyRestIT.java              # Idempotency behavior over REST (missing key, duplicate, retry)
+    └── IdempotencySOAPIT.java              # Idempotency behavior over SOAP
 ```
 
 ---

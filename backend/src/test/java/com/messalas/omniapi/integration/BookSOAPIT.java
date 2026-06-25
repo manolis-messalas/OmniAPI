@@ -2,6 +2,7 @@ package com.messalas.omniapi.integration;
 
 import bookshelf.generated.*;
 import org.junit.jupiter.api.AfterEach;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,7 @@ public class BookSOAPIT extends OAuth2TestSupport {
         bookAuthorDTO.setCountryOfOrigin("TestLand");
 
         CreateBookAuthorRequest request = new CreateBookAuthorRequest();
+        request.setIdempotencyKey(UUID.randomUUID().toString());
         request.setBookAuthorDTO(bookAuthorDTO);
 
         CreateBookAuthorResponse response = (CreateBookAuthorResponse) sendWithAuth(request);
@@ -113,6 +115,7 @@ public class BookSOAPIT extends OAuth2TestSupport {
         author.setCountryOfOrigin("BookLand");
 
         CreateAuthorRequest createAuthorRequest = new CreateAuthorRequest();
+        createAuthorRequest.setIdempotencyKey(UUID.randomUUID().toString());
         createAuthorRequest.setAuthor(author);
         sendWithAuth(createAuthorRequest);
 
@@ -122,6 +125,7 @@ public class BookSOAPIT extends OAuth2TestSupport {
         book.setAuthorName("Book Test Author");
 
         CreateBookRequest request = new CreateBookRequest();
+        request.setIdempotencyKey(UUID.randomUUID().toString());
         request.setBook(book);
 
         CreateBookResponse response = (CreateBookResponse) sendWithAuth(request);
@@ -145,6 +149,7 @@ public class BookSOAPIT extends OAuth2TestSupport {
         bookAuthorDTO.setCountryOfOrigin("DeleteLand");
 
         CreateBookAuthorRequest createRequest = new CreateBookAuthorRequest();
+        createRequest.setIdempotencyKey(UUID.randomUUID().toString());
         createRequest.setBookAuthorDTO(bookAuthorDTO);
         sendWithAuth(createRequest);
 

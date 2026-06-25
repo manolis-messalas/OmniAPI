@@ -2,6 +2,7 @@ package com.messalas.omniapi.integration;
 
 import bookshelf.generated.*;
 import org.junit.jupiter.api.AfterEach;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -107,6 +108,7 @@ public class AuthorSOAPIT extends OAuth2TestSupport {
         author.setCountryOfOrigin("TestLand");
 
         CreateAuthorRequest request = new CreateAuthorRequest();
+        request.setIdempotencyKey(UUID.randomUUID().toString());
         request.setAuthor(author);
 
         CreateAuthorResponse response = (CreateAuthorResponse) sendWithAuth(request);
@@ -128,6 +130,7 @@ public class AuthorSOAPIT extends OAuth2TestSupport {
         author.setCountryOfOrigin("DeleteLand");
 
         CreateAuthorRequest createRequest = new CreateAuthorRequest();
+        createRequest.setIdempotencyKey(UUID.randomUUID().toString());
         createRequest.setAuthor(author);
         CreateAuthorResponse createResponse = (CreateAuthorResponse) sendWithAuth(createRequest);
 

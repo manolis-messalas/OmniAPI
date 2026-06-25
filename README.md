@@ -81,16 +81,34 @@ OmniAPI hosts its **own OAuth2 Authorization Server** (Spring Authorization Serv
 |--------|------|-------------|
 | GET | `/api/rest/authors` | List all authors |
 | GET | `/api/rest/author/{id}` | Get author by ID |
-| POST | `/api/rest/createAuthor` | Create author |
+| POST | `/api/rest/createAuthor` | Create author (requires `Idempotency-Key`) |
 | PUT | `/api/rest/authors/{id}` | Update author (requires `version`) |
 | DELETE | `/api/rest/authors/{id}` | Delete author |
 | GET | `/api/rest/books` | List all books |
 | GET | `/api/rest/book/{name}` | Get book by name |
-| POST | `/api/rest/addBook` | Create book |
+| POST | `/api/rest/addBook` | Create book (requires `Idempotency-Key`) |
+| POST | `/api/rest/addBookAuthor` | Link book to author (requires `Idempotency-Key`) |
 | PUT | `/api/rest/books/{id}` | Update book (requires `version`) |
 | DELETE | `/api/rest/books/{id}` | Delete book |
 
 All `/api/rest/**` endpoints require a valid JWT bearer token.
+
+#### Idempotency Keys on POST
+
+All three POST endpoints require an `Idempotency-Key: <UUID>` request header to prevent duplicate operations on retries.
+
+```
+POST /api/rest/createAuthor
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+```
+
+| Response | Meaning |
+|----------|---------|
+| (normal) | Key was new; operation proceeded. |
+| `400 Bad Request` | `Idempotency-Key` header was missing or blank. |
+| `409 Conflict` | This key was already used for a completed request. |
+
+If the operation fails after the key is registered, the key is deleted so the client can safely retry with the same key. The React forms generate one UUID per form open (`crypto.randomUUID()`) and reuse it for any retry of that submit.
 
 #### Optimistic Locking on PUT
 
@@ -121,6 +139,8 @@ The same contract applies to the SOAP `UpdateBookRequest` / `UpdateAuthorRequest
 WSDL available at `http://localhost:9090/api/ws/bookshelf.wsdl`. Namespace: `http://spring.io/guides/gs-producing-web-service`.
 
 Operations: `CreateBookAuthorRequest`, `CreateBookRequest`, `UpdateBookRequest`, `DeleteBookRequest`, `GetBookRequest`, `GetBooksRequest`, `CreateAuthorRequest`, `UpdateAuthorRequest`, `DeleteAuthorRequest`, `GetAuthorRequest`, `GetAuthorsRequest`.
+
+The three create operations (`CreateAuthorRequest`, `CreateBookRequest`, `CreateBookAuthorRequest`) require an `<idempotencyKey>` element in the request payload. Missing or blank → `CLIENT` fault; duplicate key → `CLIENT` fault.
 
 ---
 

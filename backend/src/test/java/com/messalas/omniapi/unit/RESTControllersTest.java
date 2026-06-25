@@ -10,6 +10,7 @@ import com.messalas.omniapi.model.dto.BookDTO;
 import com.messalas.omniapi.model.dto.UserDetails;
 import com.messalas.omniapi.service.AuthorService;
 import com.messalas.omniapi.service.BookService;
+import com.messalas.omniapi.service.IdempotencyService;
 import com.messalas.omniapi.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -55,6 +56,9 @@ public class RESTControllersTest {
     @MockBean
     private UserService userService;
 
+    @MockBean
+    private IdempotencyService idempotencyService;
+
     private final boolean testPassed = true;
 
     @AfterEach
@@ -82,7 +86,7 @@ public class RESTControllersTest {
 
         when(bookService.saveBookAuthor(bookAuthorDTO)).thenReturn(2L);
 
-        ResponseEntity<BookAuthorDTO> response = booksRESTController.addBookAuthor(bookAuthorDTO);
+        ResponseEntity<BookAuthorDTO> response = booksRESTController.addBookAuthor("test-idem-key", bookAuthorDTO);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
@@ -109,7 +113,7 @@ public class RESTControllersTest {
 
         logger.info("Starting testAddBook with DTO: {}", bookDTO);
 
-        ResponseEntity<BookDTO> response = booksRESTController.addBook(bookDTO);
+        ResponseEntity<BookDTO> response = booksRESTController.addBook("test-idem-key", bookDTO);
 
         verify(bookService).saveBook(bookDTO);
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -198,7 +202,7 @@ public class RESTControllersTest {
 
         logger.info("Starting testCreateAuthor with DTO: {}", authorDTO);
 
-        ResponseEntity<AuthorDTO> response = authorRESTController.createAuthor(authorDTO);
+        ResponseEntity<AuthorDTO> response = authorRESTController.createAuthor("test-idem-key", authorDTO);
 
         verify(authorService).createAuthor(authorDTO);
         assertEquals(HttpStatus.OK, response.getStatusCode());

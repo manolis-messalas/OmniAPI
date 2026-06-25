@@ -1,6 +1,7 @@
 package com.messalas.omniapi.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.UUID;
 import com.messalas.omniapi.model.builders.BookAuthorDTOBuilder;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
@@ -112,6 +113,7 @@ public class BookRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/addBookAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bookAuthorDTO)))
                 .andExpect(status().isOk());
@@ -140,6 +142,7 @@ public class BookRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/addBook")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bookDTO)))
                 .andExpect(status().isOk());
@@ -167,6 +170,7 @@ public class BookRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/addBook")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bookDTO)))
                 .andExpect(status().isBadRequest())
@@ -189,6 +193,7 @@ public class BookRestIT {
                 .build();
 
         String createResponse = mockMvc.perform(post("/api/rest/addBookAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bookToDelete)))
                 .andExpect(status().isOk())
@@ -264,6 +269,7 @@ public class BookRestIT {
                 .build();
 
         mockMvc.perform(post("/api/rest/addBookAuthor")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bookAuthorDTO)))
                 .andExpect(status().isOk());

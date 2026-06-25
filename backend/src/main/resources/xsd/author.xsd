@@ -18,6 +18,7 @@
     <xs:element name="CreateAuthorRequest">
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="idempotencyKey" type="xs:string" minOccurs="0"/>
                 <xs:element name="author" type="tns:Author"/>
             </xs:sequence>
         </xs:complexType>

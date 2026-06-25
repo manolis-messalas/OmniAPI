@@ -7,6 +7,7 @@ import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.BookAuthorDTO;
 import com.messalas.omniapi.model.dto.BookDTO;
 import com.messalas.omniapi.service.BookService;
+import com.messalas.omniapi.service.IdempotencyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,27 +27,36 @@ public class BookSOAPController {
 
     private static final Logger log = LoggerFactory.getLogger(BookSOAPController.class);
 
-
     private final BookService bookService;
+    private final IdempotencyService idempotencyService;
 
     @Autowired
-    public BookSOAPController(BookService bookService) {
+    public BookSOAPController(BookService bookService, IdempotencyService idempotencyService) {
         this.bookService = bookService;
+        this.idempotencyService = idempotencyService;
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CreateBookAuthorRequest")
     @ResponsePayload
     public CreateBookAuthorResponse createBookAuthor(@RequestPayload CreateBookAuthorRequest request) {
+        String key = request.getIdempotencyKey();
+        if (key == null || key.isBlank()) {
+            throw new BookValidationException("Idempotency-Key is required");
+        }
+        idempotencyService.registerKey(key);
         CreateBookAuthorResponse response = new CreateBookAuthorResponse();
         try {
             bookshelf.generated.BookAuthorDTO requestBookAuthorDTO = request.getBookAuthorDTO();
             BookAuthorDTO newBookAuthor = new BookAuthorDTO(
-                    requestBookAuthorDTO.getBookName(), requestBookAuthorDTO.getDateOfBirth(), requestBookAuthorDTO.getCountryOfOrigin(), requestBookAuthorDTO.getAuthorName(), requestBookAuthorDTO.getPublicationYear()
+                    requestBookAuthorDTO.getBookName(), requestBookAuthorDTO.getDateOfBirth(),
+                    requestBookAuthorDTO.getCountryOfOrigin(), requestBookAuthorDTO.getAuthorName(),
+                    requestBookAuthorDTO.getPublicationYear()
             );
             bookService.saveBookAuthor(newBookAuthor);
             response.setSuccess(true);
-        }catch (Exception e){
+        } catch (Exception e) {
             System.err.println("Error saving book and author information:" + e.getMessage());
+            idempotencyService.deleteKey(key);
             response.setSuccess(false);
         }
         return response;
@@ -55,7 +65,11 @@ public class BookSOAPController {
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CreateBookRequest")
     @ResponsePayload
     public CreateBookResponse createBook(@RequestPayload CreateBookRequest request) {
-        CreateBookResponse response = new CreateBookResponse();
+        String key = request.getIdempotencyKey();
+        if (key == null || key.isBlank()) {
+            throw new BookValidationException("Idempotency-Key is required");
+        }
+        idempotencyService.registerKey(key);
         try {
             bookshelf.generated.Book requestBook = request.getBook();
             com.messalas.omniapi.model.dto.AuthorDTO authorDTO = com.messalas.omniapi.model.dto.AuthorDTO.builder()
@@ -69,13 +83,16 @@ public class BookSOAPController {
                     .build();
 
             Long bookId = bookService.saveBook(newBook);
+            CreateBookResponse response = new CreateBookResponse();
             response.setBookId(bookId);
             response.setMessage("SUCCESS");
             return response;
         } catch (IllegalArgumentException e) {
+            idempotencyService.deleteKey(key);
             throw new BookValidationException("Validation failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("Failed to create book", e);
+            idempotencyService.deleteKey(key);
             throw new BookServiceException("Internal server error");
         }
     }
@@ -178,5 +195,4 @@ public class BookSOAPController {
                 })
                 .collect(Collectors.toList());
     }
-
 }

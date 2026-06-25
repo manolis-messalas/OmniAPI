@@ -6,6 +6,7 @@ import com.messalas.omniapi.exceptions.AuthorValidationException;
 import com.messalas.omniapi.exceptions.OptimisticLockConflictException;
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.service.AuthorService;
+import com.messalas.omniapi.service.IdempotencyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,30 +25,39 @@ public class AuthorSOAPController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthorSOAPController.class);
 
-    private AuthorService authorService;
+    private final AuthorService authorService;
+    private final IdempotencyService idempotencyService;
 
     @Autowired
-    public AuthorSOAPController(AuthorService authorService) {
+    public AuthorSOAPController(AuthorService authorService, IdempotencyService idempotencyService) {
         this.authorService = authorService;
+        this.idempotencyService = idempotencyService;
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CreateAuthorRequest")
     @ResponsePayload
     public CreateAuthorResponse createAuthor(@RequestPayload CreateAuthorRequest request) {
-        CreateAuthorResponse response = new CreateAuthorResponse();
+        String key = request.getIdempotencyKey();
+        if (key == null || key.isBlank()) {
+            throw new AuthorValidationException("Idempotency-Key is required");
+        }
+        idempotencyService.registerKey(key);
         try {
             bookshelf.generated.Author requestAuthor = request.getAuthor();
             AuthorDTO newAuthor = new AuthorDTO(
                     requestAuthor.getName(), requestAuthor.getDateOfBirth(), requestAuthor.getCountryOfOrigin()
             );
             Long authorId = authorService.createAuthor(newAuthor);
+            CreateAuthorResponse response = new CreateAuthorResponse();
             response.setAuthorId(authorId);
             response.setMessage("SUCCESS");
             return response;
         } catch (IllegalArgumentException e) {
-                throw new AuthorValidationException("Validation failed: " + e.getMessage());
+            idempotencyService.deleteKey(key);
+            throw new AuthorValidationException("Validation failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("Failed to create author", e);
+            idempotencyService.deleteKey(key);
             throw new AuthorServiceException("Internal server error");
         }
     }
@@ -157,5 +167,4 @@ public class AuthorSOAPController {
                 })
                 .collect(Collectors.toList());
     }
-
 }

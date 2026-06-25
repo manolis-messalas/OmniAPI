@@ -2,6 +2,7 @@ package com.messalas.omniapi.api.rest;
 
 import com.messalas.omniapi.model.dto.AuthorDTO;
 import com.messalas.omniapi.service.AuthorService;
+import com.messalas.omniapi.service.IdempotencyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,14 +13,27 @@ import java.util.List;
 public class AuthorRESTController {
 
     private final AuthorService authorService;
+    private final IdempotencyService idempotencyService;
 
-    public AuthorRESTController(AuthorService authorService) {
+    public AuthorRESTController(AuthorService authorService, IdempotencyService idempotencyService) {
         this.authorService = authorService;
+        this.idempotencyService = idempotencyService;
     }
 
     @PostMapping(path = "/createAuthor")
-    public ResponseEntity<AuthorDTO> createAuthor(@RequestBody AuthorDTO authorDTO){
-        authorService.createAuthor(authorDTO);
+    public ResponseEntity<AuthorDTO> createAuthor(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody AuthorDTO authorDTO) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new IllegalArgumentException("Idempotency-Key header is required");
+        }
+        idempotencyService.registerKey(idempotencyKey);
+        try {
+            authorService.createAuthor(authorDTO);
+        } catch (Exception e) {
+            idempotencyService.deleteKey(idempotencyKey);
+            throw e;
+        }
         return ResponseEntity.ok().build();
     }
 
@@ -29,7 +43,7 @@ public class AuthorRESTController {
     }
 
     @GetMapping("author/{id}")
-    public ResponseEntity<AuthorDTO> getAuthor(@PathVariable Long id) { 
+    public ResponseEntity<AuthorDTO> getAuthor(@PathVariable Long id) {
         return ResponseEntity.ok(authorService.getAuthorById(id));
     }
 
@@ -43,5 +57,4 @@ public class AuthorRESTController {
         authorService.deleteAuthor(id);
         return ResponseEntity.noContent().build();
     }
-
 }
