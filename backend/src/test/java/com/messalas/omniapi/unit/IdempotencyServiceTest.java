@@ -36,7 +36,7 @@ public class IdempotencyServiceTest {
 
     @Test
     public void registerKey_duplicateKey_throwsDuplicateRequestException() {
-        String key = "duplicate-key-456";
+        String key = "duplicate-key-456"; // gitleaks:allow
         when(repository.saveAndFlush(any()))
                 .thenThrow(new DataIntegrityViolationException("unique constraint violation"));
 
