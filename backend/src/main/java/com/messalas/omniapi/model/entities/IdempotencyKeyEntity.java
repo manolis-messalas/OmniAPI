@@ -1,10 +1,7 @@
 package com.messalas.omniapi.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.domain.Persistable;
@@ -27,9 +24,19 @@ public class IdempotencyKeyEntity implements Persistable<String> {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // True for brand-new instances (forces persist/INSERT); flipped to false by
+    // @PostLoad so that deleteById can remove DB-loaded entities normally.
+    @Transient
+    private boolean isNew = true;
+
     public IdempotencyKeyEntity(String idempotencyKey) {
         this.idempotencyKey = idempotencyKey;
         this.createdAt = Instant.now();
+    }
+
+    @PostLoad
+    void markNotNew() {
+        this.isNew = false;
     }
 
     @Override
@@ -38,11 +45,9 @@ public class IdempotencyKeyEntity implements Persistable<String> {
         return idempotencyKey;
     }
 
-    // Always true so Spring Data uses persist() (INSERT) instead of merge() (upsert),
-    // ensuring DataIntegrityViolationException is thrown on duplicate keys.
     @Override
     @JsonIgnore
     public boolean isNew() {
-        return true;
+        return isNew;
     }
 }
