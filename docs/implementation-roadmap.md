@@ -29,67 +29,48 @@ This is the project's core thesis — lead interviews with this, not with CRUD d
 
 **The unifying argument:** all five protocols sit in front of the *same* service layer — zero duplicated business logic. That reuse story is worth more than any single protocol.
 
-## Tier 1 — Event Spine (Kafka, async, caching, search)
+## Tier 1 — Performance & Search
 
-These four are deliberately one connected story, not four isolated features — build them in this order so each step has a consumer.
-
-**1a. Domain events via Kafka** 🔲
-- *Signal:* Decoupling side effects (indexing, cache invalidation, audit) from the write path; understanding at-least-once delivery and idempotent consumers.
-- *Layer:* Backend / Architecture
-- *Proof point:* Publish `BookCreated`/`AuthorUpdated` events on write. Consumers: one updates Elasticsearch, one evicts the Redis cache entry. This single event becomes the spine connecting 1b–1d.
-
-**1b. Asynchronous processing** 🔲
-- *Signal:* Knowing when *not* to block the request thread — bulk import, email/notification side effects, fan-out work.
-- *Layer:* Backend
-- *Proof point:* `@Async` with a dedicated `ThreadPoolTaskExecutor` (not the default) for a bulk book-import endpoint; or a reactive `Mono`/`Flux` variant of one read endpoint via WebFlux for direct comparison against the blocking MVC version.
-
-**1c. Caching** 🔲
-- *Signal:* Cache-aside pattern, invalidation correctness (the hard part, not the lookup), TTL vs event-driven eviction.
+**1a. Caching** 🔲
+- *Signal:* Cache-aside pattern, invalidation correctness (the hard part, not the lookup), TTL-based eviction.
 - *Layer:* Backend / Infra
-- *Proof point:* `@Cacheable` on author/book lookups backed by Redis; eviction triggered by the Kafka consumer from 1a (event-driven invalidation, not just TTL) — also add `ETag`/`Cache-Control` headers on the REST responses for HTTP-level caching.
+- *Proof point:* `@Cacheable` on author/book lookups backed by Redis; `@CacheEvict` on writes. Add `ETag`/`Cache-Control` headers on REST responses for HTTP-level caching. Discuss TTL tuning and the stale-read tradeoff.
 
-**1d. Search via Elasticsearch** 🔲
+**1b. Search via Elasticsearch** 🔲
 - *Signal:* Recognizing SQL `LIKE` doesn't scale for relevance ranking, fuzzy match, or faceted search.
 - *Layer:* Backend / Infra
-- *Proof point:* ES index kept in sync by the same Kafka consumer; `/search/books?q=` endpoint backed by ES instead of Postgres. This also becomes your vector store for Tier 2's AI feature — one less moving part.
+- *Proof point:* Elasticsearch index populated on write via Spring Data Elasticsearch; `/search/books?q=` endpoint backed by ES instead of Postgres. Talking point: why you'd pick ES for search and keep Postgres as the source of truth.
 
-## Tier 2 — AI (Spring AI)
+## Tier 2 — Cloud & Kubernetes
 
-**2. LLM-backed feature using Spring AI** 🔲
-- *Signal:* Current with the 2024/25 ecosystem beyond "I called the OpenAI API once" — tool-calling/agentic patterns are what's actually being asked about now.
-- *Layer:* Backend / Architecture
-- *Proof point:* Two options, pick one: (a) semantic "similar books" search using embeddings stored in Elasticsearch's vector field (reuses Tier 1d, no new infra) or pgvector on the existing Postgres; (b) a `ChatClient` with tool-calling that invokes your own `BookService`/`AuthorService` — the LLM orchestrates calls into your own multi-protocol APIs. Option (b) is the stronger interview story because it ties the AI feature back to the project's actual thesis.
-
-## Tier 3 — Cloud & Kubernetes
-
-**3a. Kubernetes manifests** 🔲
+**2a. Kubernetes manifests** 🔲
 - *Signal:* Knowing the difference between "runs in Docker" and "runs correctly under an orchestrator" — probes, config separation, statefulness.
 - *Layer:* Infra
 - *Proof point:* `/k8s` directory with Deployment/Service manifests for backend, frontend, and a StatefulSet (or managed-DB stand-in) for Postgres. Wire `livenessProbe`/`readinessProbe` to the Actuator health endpoint you already expose. Use a ConfigMap/Secret split instead of baked-in env vars — discuss HPA scaling triggers (CPU vs custom metrics) even if not implemented.
 
-**3b. Cloud deployment** 🔲
+**2b. Cloud deployment** 🔲
 - *Signal:* IaC discipline, managed-service tradeoffs, cost/least-privilege awareness — not just "it's in a container."
 - *Layer:* Infra
 - *Proof point:* Terraform for one cloud (pick AWS or Azure to match target employers) provisioning a managed Postgres instance + container hosting (ECS/AKS) instead of self-hosting the DB container. Talking point: why managed Postgres beats your current containerized one in prod (backups, failover, patching) even though the container version is fine for portfolio/dev.
 
-## Tier 4 — Quality Gates
+## Tier 3 — Quality Gates
 
-**4. SonarQube / static analysis in CI** 🔲
+**3. SonarQube / static analysis in CI** 🔲
 - *Signal:* Distinguishing SAST/code-quality gating (SonarQube) from dependency scanning (Trivy/Snyk) — and treating both as CI gates, not optional reports.
 - *Layer:* Infra
 - *Proof point:* Add a SonarCloud job to `github-actions.yml` (free tier), require its quality gate to pass before merge. Pair with a Trivy/grype image scan using the `security-events: write` permission already declared in the workflow.
 
-## Tier 5 — Principles (talking points mapped to real files, not recited acronyms)
+## Tier 4 — Principles (talking points mapped to real files, not recited acronyms)
 
-**5a. ACID**
+**4a. ACID**
 - *Layer:* Architecture / Backend
 - *Proof point:* `@Transactional` boundary when creating a book and linking its author atomically. Pair with the implemented optimistic locking (`@Version` on `BookEntity`/`AuthorEntity`, `ObjectOptimisticLockingFailureException` → 409 Conflict) to demonstrate isolation in practice, not just the acronym — see AGENTS.md for the full pattern.
 
-**5b. CAP**
+**4b. CAP**
 - *Layer:* Architecture
-- *Proof point:* Once Tier 1 lands, you have a real CAP story: Postgres is your CP source of truth, Elasticsearch is your AP read replica that can lag. Explain explicitly that you chose availability/staleness for search and consistency for transactional writes — a deliberate tradeoff, not an accident.
+- *Proof point:* Once 1b (Elasticsearch) lands, you have a real CAP story: Postgres is your CP source of truth, Elasticsearch is your AP read replica that can lag. Explain explicitly that you chose availability/staleness for search and consistency for transactional writes — a deliberate tradeoff, not an accident.
 
-**5c. SOLID — mapped to actual code, not the acronym**
+**4c. SOLID — mapped to actual code, not the acronym**
 - *Layer:* Backend
 - *Proof point:* SRP — `service`/`mapper`/`builder` split means no class does mapping and persistence and business logic. OCP — JPA `Specification` (see Carryover backlog below) lets you add filter criteria without touching repository code. LSP — any repository interface swap (JPA vs custom impl) is substitutable. ISP — separate `BookRepository`/`AuthorRepository` instead of one god-repository. DIP — services depend on repository *interfaces*, constructor-injected, never on `Hibernate` directly.
 
@@ -129,7 +110,6 @@ These four are deliberately one connected story, not four isolated features — 
 ## Build Order
 
 1. **Tier 0** protocols — this is what makes OmniAPI distinct; do it before anything else.
-2. **Tier 1** event spine (Kafka → async → cache → search) — each step unlocks the next, build in this exact order.
-3. **Tier 2** AI feature — cheap once Tier 1's search/vector store exists.
-4. **Tier 3** K8s/cloud — promote the now-feature-complete app to a real deployment target.
-5. **Tier 4 & 5** — quality gates and principle talking points apply throughout; revisit them as each tier lands rather than batching at the end.
+2. **Tier 1** caching + search — performance and query improvements on top of the completed protocol layer.
+3. **Tier 2** K8s/cloud — promote the now-feature-complete app to a real deployment target.
+4. **Tier 3 & 4** — quality gates and principle talking points apply throughout; revisit them as each tier lands rather than batching at the end.
