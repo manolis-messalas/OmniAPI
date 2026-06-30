@@ -73,7 +73,6 @@ This is the project's core thesis — lead interviews with this, not with CRUD d
 **4c. SOLID — mapped to actual code, not the acronym**
 - *Layer:* Backend
 - SRP ✅ — `service`/`mapper`/`builder` split means no class does mapping and persistence and business logic.
-- OCP 🔲 — JPA `Specification` (see Carryover backlog below) lets you add filter criteria without touching repository code.
 - LSP ✅ — H2/Postgres/SQLite are interchangeable via a profile switch; no code changes required.
 - ISP ✅ — separate `BookRepository`/`AuthorRepository` instead of one god-repository.
 - DIP ✅ — services depend on repository *interfaces*, constructor-injected, never on `Hibernate` directly.
@@ -88,8 +87,6 @@ This is the project's core thesis — lead interviews with this, not with CRUD d
 - **Staged CI pipeline with artifact handoff** ✅ — unit-tests → frontend-build → docker-build-push → integration-tests, fail-fast ordering, GHCR images per concern (backend/frontend/postgres).
 - **Stateless auth via Spring Security** ✅ — `SecurityFilterChain`, method-level `@PreAuthorize`, locked-down Actuator surface.
 - **Centralized exception handling** 🔲 — upgrade the existing `exceptions` package to `@RestControllerAdvice` returning `ProblemDetail` (RFC 7807) for a consistent error contract across REST *and* a SOAP fault-mapping equivalent.
-- **JPA `Specification` / dynamic query building** 🔲 — replace one-off repository finder methods with composable `Specification<T>` queries for a search/filter endpoint (e.g., book search by author/genre/year). Doubles as the concrete OCP example referenced in Tier 5c.
-- **React (not Angular) + TypeScript** 🔲 — React stays; the actual gap is `.jsx` → `.tsx` with typed Axios responses matching backend DTOs, plus a centralized Axios client with auth/401 interceptors and TanStack Query for server-state caching.
 
 **Idempotency keys** ✅
 - Implemented for all non-idempotent POST endpoints (`/createAuthor`, `/addBook`, `/addBookAuthor`) and their SOAP equivalents (`CreateAuthorRequest`, `CreateBookRequest`, `CreateBookAuthorRequest`).
