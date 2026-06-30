@@ -251,3 +251,4 @@ PostgreSQL is the CP source of truth — it favours consistency over availabilit
 - [AGENTS.md](docs/AGENTS.md) — architecture, conventions, testing patterns, debugging tips
 - [Security.md](docs/Security.md) — OWASP Top 10 mapping, filter chain details, security implementation status
 - [implementation-roadmap.md](docs/implementation-roadmap.md) — planned protocols (GraphQL, gRPC, WebSockets) and features
+- [Compliance.md](docs/Compliance.md) — compliance-oriented engineering controls and implementation status
