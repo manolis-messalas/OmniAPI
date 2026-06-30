@@ -62,17 +62,21 @@ This is the project's core thesis — lead interviews with this, not with CRUD d
 
 ## Tier 4 — Principles (talking points mapped to real files, not recited acronyms)
 
-**4a. ACID**
+**4a. ACID** ✅
 - *Layer:* Architecture / Backend
 - *Proof point:* `@Transactional` boundary when creating a book and linking its author atomically. Pair with the implemented optimistic locking (`@Version` on `BookEntity`/`AuthorEntity`, `ObjectOptimisticLockingFailureException` → 409 Conflict) to demonstrate isolation in practice, not just the acronym — see AGENTS.md for the full pattern.
 
-**4b. CAP**
+**4b. CAP** 🔲 (partial — Postgres CP side exists; requires Tier 1b Elasticsearch for the AP tradeoff)
 - *Layer:* Architecture
 - *Proof point:* Once 1b (Elasticsearch) lands, you have a real CAP story: Postgres is your CP source of truth, Elasticsearch is your AP read replica that can lag. Explain explicitly that you chose availability/staleness for search and consistency for transactional writes — a deliberate tradeoff, not an accident.
 
 **4c. SOLID — mapped to actual code, not the acronym**
 - *Layer:* Backend
-- *Proof point:* SRP — `service`/`mapper`/`builder` split means no class does mapping and persistence and business logic. OCP — JPA `Specification` (see Carryover backlog below) lets you add filter criteria without touching repository code. LSP — any repository interface swap (JPA vs custom impl) is substitutable. ISP — separate `BookRepository`/`AuthorRepository` instead of one god-repository. DIP — services depend on repository *interfaces*, constructor-injected, never on `Hibernate` directly.
+- SRP ✅ — `service`/`mapper`/`builder` split means no class does mapping and persistence and business logic.
+- OCP 🔲 — JPA `Specification` (see Carryover backlog below) lets you add filter criteria without touching repository code.
+- LSP ✅ — H2/Postgres/SQLite are interchangeable via a profile switch; no code changes required.
+- ISP ✅ — separate `BookRepository`/`AuthorRepository` instead of one god-repository.
+- DIP ✅ — services depend on repository *interfaces*, constructor-injected, never on `Hibernate` directly.
 
 ## Carryover — Already Strong, Keep These In Your Back Pocket
 
