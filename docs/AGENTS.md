@@ -128,14 +128,34 @@ public interface AuthorMapper {
 
 **Key files:**
 - `model/entities/IdempotencyKeyEntity.java` — JPA entity mapping to `idempotency_keys` table
-- `repository/IdempotencyKeyRepository.java` — `JpaRepository<IdempotencyKeyEntity, String>`
+- `repository/IdempotencyKeyRepository.java` — `JpaRepository<IdempotencyKeyEntity, String>` + `deleteByCreatedAtBefore(Instant)`
 - `exceptions/DuplicateRequestException.java` — maps to 409 via `RESTExceptionHandler`
-- `service/IdempotencyService.java` — `registerKey()` and `deleteKey()`, both `REQUIRES_NEW`
+- `service/IdempotencyService.java` — `registerKey()`, `deleteKey()` (both `REQUIRES_NEW`), `cleanupStaleKeys()` (scheduled)
+- `security/SchedulingConfig.java` — `@EnableScheduling` + virtual-thread `ThreadPoolTaskScheduler` bean
 - `api/rest/AuthorRESTController.java`, `BooksRESTController.java` — enforce header, wrap service calls
 - `api/soap/AuthorSOAPController.java`, `BookSOAPController.java` — read `request.getIdempotencyKey()`, same guard + rollback pattern
 - `src/main/resources/xsd/author.xsd`, `book.xsd`, `bookshelf.xsd` — `idempotencyKey` element on create requests
 - `src/api/authorsApi.js`, `booksApi.js` — pass `idempotencyKey` as second argument
 - `components/authors/AuthorForm.jsx`, `components/books/BookForm.jsx` — generate key on mount
+
+#### TTL Cleanup
+
+Stale idempotency keys (older than 24 hours) are removed by a scheduled background job so the `idempotency_keys` table does not grow unboundedly.
+
+**Schedule:** `initialDelay = 60 s`, `fixedDelay = 1 h` (delay measured from completion, not start — prevents overlap).
+
+**Virtual threads:** `SchedulingConfig` configures a `ThreadPoolTaskScheduler` with a `Thread.ofVirtual()` factory (Java 23, Spring Boot 3.2+ compatible). The scheduler pool size is 2, capping concurrent scheduled tasks while keeping thread overhead negligible.
+
+**Cleanup method** (`IdempotencyService.cleanupStaleKeys()`):
+1. Computes `cutoff = Instant.now().minus(Duration.ofDays(1))`.
+2. Calls `repository.deleteByCreatedAtBefore(cutoff)` — a single bulk `DELETE` JPQL query with `@Modifying(clearAutomatically = true) @Transactional`.
+3. Logs `"Starting idempotency key cleanup"` at INFO, then `"Deleted N stale keys in Xms"` on success, or `"Idempotency key cleanup failed"` at ERROR on exception. Exceptions are never rethrown.
+
+**Cross-database:** The JPQL `DELETE FROM IdempotencyKeyEntity WHERE createdAt < :cutoff` is dialect-neutral and runs on H2, PostgreSQL, and SQLite without modification.
+
+**Tests:**
+- Unit: `IdempotencyServiceTest` — mocks repository, verifies cutoff ≈ 1 day ago via `ArgumentCaptor`, asserts INFO/ERROR log messages via Logback `ListAppender`.
+- Integration: `IdempotencyCleanupIT` — inserts 3 stale + 2 fresh rows, calls `cleanupStaleKeys()`, asserts exactly 3 rows deleted. Run against other profiles: `./mvnw verify -Dspring.profiles.active=postgres` or `sqlite`.
 
 ### Optimistic Locking
 
@@ -391,16 +411,17 @@ src/main/java/com/messalas/omniapi/
 │   ├── rest/                               # REST endpoints (@RestController)
 │   └── soap/                               # SOAP endpoints (@Endpoint)
 ├── service/                                # Business logic (@Service)
-│   └── IdempotencyService.java             # registerKey() / deleteKey(), both REQUIRES_NEW
+│   └── IdempotencyService.java             # registerKey() / deleteKey() (REQUIRES_NEW) + cleanupStaleKeys() (@Scheduled)
 ├── repository/                             # Data access (JpaRepository)
-│   └── IdempotencyKeyRepository.java       # JpaRepository<IdempotencyKeyEntity, String>
+│   └── IdempotencyKeyRepository.java       # JpaRepository<IdempotencyKeyEntity, String> + deleteByCreatedAtBefore()
 ├── model/
 │   ├── entities/                           # JPA @Entity classes
 │   │   └── IdempotencyKeyEntity.java       # Maps to idempotency_keys table (PK = key string)
 │   ├── dto/                                # DTOs for API contracts
 │   ├── mappers/                            # MapStruct @Mapper interfaces
 │   └── builders/                           # Manual builders
-├── security/                               # Spring Security config
+├── security/                               # Spring Security + scheduling config
+│   ├── SchedulingConfig.java               # @EnableScheduling + virtual-thread ThreadPoolTaskScheduler
 │   ├── OmniApiUserDetailsService.java      # Implements UserDetailsService → queries app_user table
 │   └── oauth/AuthorizationServerConfig.java # Self-hosted OAuth2 Authorization Server
 ├── exceptions/                             # Custom exceptions + SOAP faults
@@ -420,7 +441,8 @@ src/test/java/com/messalas/omniapi/
 │   └── mappers/                            # MapStruct mapper unit tests
 └── integration/                            # Integration tests (*IT.java, @SpringBootTest, real DB)
     ├── IdempotencyRestIT.java              # Idempotency behavior over REST (missing key, duplicate, retry)
-    └── IdempotencySOAPIT.java              # Idempotency behavior over SOAP
+    ├── IdempotencySOAPIT.java              # Idempotency behavior over SOAP
+    └── IdempotencyCleanupIT.java           # TTL cleanup: inserts stale+fresh rows, asserts only stale deleted
 ```
 
 ---
